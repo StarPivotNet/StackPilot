@@ -146,4 +146,18 @@ export class SshService {
   private assertOwner(principal: Principal, nodeId: string, userId: string) {
     if ((principal.nodeScope !== "all" && !principal.nodeScope.includes(nodeId)) || (principal.userId !== userId && !principal.permissions.has("ssh:manage"))) throw denied();
   }
+  hostState(nodeId: string) {
+    const sessions = (this.db.prepare("SELECT payload FROM ssh_sessions WHERE node_id=?").all(nodeId) as PayloadRow[]).map(row => SshSessionSchema.parse(JSON.parse(row.payload)));
+    return { controllerTime: this.now(), sessions: sessions.filter(session => !session.terminatedAt).map(session => ({ id: session.id, connectionId: session.connectionId, terminate: !!session.terminationRequestedAt || Date.parse(session.expiresAt) <= this.clock() || !this.userAllowed(session.userId, nodeId) || !this.nodeActive(nodeId) })) };
+  }
+  acknowledgeTerminated(nodeId: string, sessionId: string, connectionId: string) {
+    return this.db.transaction(() => {
+      const row = this.db.prepare("SELECT payload FROM ssh_sessions WHERE id=? AND node_id=?").get(sessionId, nodeId) as PayloadRow | undefined;
+      if (!row) throw new ServiceError(404, "NOT_FOUND", "SSH 会话不存在");
+      const session = SshSessionSchema.parse(JSON.parse(row.payload));
+      if (session.connectionId !== connectionId) throw denied();
+      if (!session.terminatedAt) { session.terminatedAt = this.now(); this.writeSession(session); this.record(session.userId, nodeId, "session.terminated", session.id); }
+      return session;
+    }).immediate();
+  }
 }

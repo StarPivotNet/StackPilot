@@ -2,6 +2,18 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.43 - 2026-11-13
+
+### Added
+
+- Add the independent root SSH helper workspace, protected key/session storage, signed TLS client and root-only PAM socket boundary.
+- Add native PAM authentication/account/session hooks and independent systemd connection scopes with durable deadlines, outage behavior and confirmed termination receipts.
+- Add root Ubuntu CI checks for native PAM ABI and protected storage; full SSH takeover and VM acceptance remain incomplete and disabled.
+
+### Fixed
+
+- Extend Controller backup support through schema 12 and bind Compose smoke images to the actual release version. Enforce LF for Linux runtime/build inputs.
+
 ## 0.3.0-preview.42 - 2026-11-13
 
 ### Added

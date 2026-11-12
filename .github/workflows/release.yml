@@ -45,6 +45,11 @@ jobs:
           npm audit --audit-level=high
           npx --no-install playwright install --with-deps chromium
           npm run test:e2e
+      - name: Verify native SSH PAM boundary
+        run: |
+          sudo apt-get update && sudo apt-get install --yes build-essential libpam0g-dev
+          npm run build:pam --workspace @stackpilot/ssh-helper
+          sudo env "PATH=$PATH" GITHUB_ACTIONS=true STACKPILOT_DISPOSABLE_SYSTEMD_TEST=1 node --test tests/ssh-helper/*.test.js tests/ssh-helper-native/*.test.js
       - name: Generate release archive, SBOM and checksums
         run: |
           SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD) npm run release:build

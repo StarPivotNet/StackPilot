@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/web",
   "private": true,
-  "version": "0.3.0-preview.42",
+  "version": "0.3.0-preview.43",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -22,8 +22,8 @@
     "@fontsource-variable/dm-sans": "^5.2.8",
     "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
     "@fontsource-variable/roboto-mono": "^5.2.8",
-    "@stackpilot/config": "0.3.0-preview.42",
-    "@stackpilot/contracts": "0.3.0-preview.42",
+    "@stackpilot/config": "0.3.0-preview.43",
+    "@stackpilot/contracts": "0.3.0-preview.43",
     "lucide-react": "^0.561.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1"

@@ -1,0 +1,37 @@
+[Unit]
+Description=StackPilot managed SSH PAM helper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/stackpilot-ssh-helper/current
+Environment=NODE_ENV=production
+Environment=STACKPILOT_SSH_STATE_DIR=/var/lib/stackpilot-ssh-helper
+EnvironmentFile=/etc/stackpilot-ssh-helper/helper.env
+ExecStart=/usr/bin/node /opt/stackpilot-ssh-helper/current/apps/ssh-helper/dist/main.js run
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+StateDirectory=stackpilot-ssh-helper
+StateDirectoryMode=0700
+RuntimeDirectory=stackpilot-ssh-helper
+RuntimeDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

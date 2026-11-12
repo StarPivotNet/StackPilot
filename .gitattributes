@@ -1,0 +1,10 @@
+*.sh text eol=lf
+*.service text eol=lf
+*.socket text eol=lf
+*.sysusers text eol=lf
+*.tmpfiles text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+Makefile text eol=lf

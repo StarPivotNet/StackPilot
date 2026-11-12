@@ -15,6 +15,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-ssh:
+    name: Native SSH PAM and helper boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Set up Node.js 22.22.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.22.0
+          cache: npm
+      - name: Install locked workspace dependencies
+        run: npm ci
+      - name: Install PAM build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes build-essential libpam0g-dev
+      - name: Build helper and native PAM module
+        run: |
+          npm run build --workspace @stackpilot/contracts
+          npm run build --workspace @stackpilot/ssh-helper
+          npm run build:pam --workspace @stackpilot/ssh-helper
+      - name: Verify root-only storage, TLS client, lifetime and native PAM ABI
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true STACKPILOT_DISPOSABLE_SYSTEMD_TEST=1 node --test tests/ssh-helper/*.test.js tests/ssh-helper-native/*.test.js
+      - name: Upload compiled PAM evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-ssh-pam
+          path: apps/ssh-helper/build/pam_stackpilot.so
+          if-no-files-found: error
+          retention-days: 14
   windows-telemetry:
     name: Windows telemetry
     runs-on: windows-2025
@@ -77,9 +107,14 @@ jobs:
       - name: Run HTTPS desktop and mobile E2E
         run: npm run test:e2e
       - name: Generate release archive, SBOM and checksums
+        # Native PAM is part of the passive Linux release archive.
+        # Installing build dependencies here does not enable managed SSH.
+        # The independent native-ssh job exercises the module as root.
+        run: |
+          sudo apt-get update && sudo apt-get install --yes build-essential libpam0g-dev
+          npm run release:build
         env:
           SOURCE_DATE_EPOCH: "0"
-        run: npm run release:build
       - name: Verify release checksums and scan for leaked secrets
         run: |
           npm run release:verify -- output/release/$(node -p "require('./package.json').version")/SHA256SUMS
@@ -149,6 +184,7 @@ jobs:
           test "$(docker image inspect stackpilot-agent:ci --format '{{.Config.User}}')" = "10002:10002"
       - name: Run clean Compose HTTPS smoke installation
         env:
+          STACKPILOT_VERSION: ${{ steps.release.outputs.version }}
           STACKPILOT_TLS_CERT_PATH: ${{ github.workspace }}/output/ci-secrets/web.crt
           STACKPILOT_TLS_KEY_PATH: ${{ github.workspace }}/output/ci-secrets/web.key
           STACKPILOT_AGENT_TLS_CERT_PATH: ${{ github.workspace }}/output/ci-secrets/agent.crt

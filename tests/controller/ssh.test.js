@@ -136,6 +136,24 @@ test("custom role changes invalidate previously issued SSH access", async () => 
   assert(service.list(principal).credentials.find(row => row.id === value.credential.id).revokedAt);
   assert.throws(() => service.authenticate(nodeId, value.credential.account, value.password, randomUUID()));
 }));
+test("helper polling derives revoked access without mutating session records", async () => fixture(({ ready, issue, service, nodeId, principal, db }) => {
+  ready(); const value = issue(); const session = service.authenticate(nodeId, value.credential.account, value.password, randomUUID());
+  assert.equal(service.hostState(nodeId).sessions[0].terminate, false);
+  db.prepare("UPDATE users SET disabled_at=? WHERE id=?").run(new Date().toISOString(), principal.userId);
+  const before = db.prepare("SELECT payload FROM ssh_sessions WHERE id=?").get(session.id).payload;
+  assert.equal(service.hostState(nodeId).sessions[0].terminate, true);
+  assert.equal(db.prepare("SELECT payload FROM ssh_sessions WHERE id=?").get(session.id).payload, before);
+}));
+test("termination acknowledgement requires exact node and connection and is idempotent", async () => fixture(({ ready, issue, service, nodeId, principal, db, advance }) => {
+  ready(); const value = issue(); const session = service.authenticate(nodeId, value.credential.account, value.password, randomUUID());
+  service.revoke(principal, value.credential.id);
+  assert.throws(() => service.acknowledgeTerminated(randomUUID(), session.id, session.connectionId));
+  assert.throws(() => service.acknowledgeTerminated(nodeId, session.id, randomUUID()));
+  const confirmed = service.acknowledgeTerminated(nodeId, session.id, session.connectionId); assert(confirmed.terminatedAt);
+  const count = db.prepare("SELECT count(*) AS n FROM audit_events").get().n;
+  advance(1000); assert.equal(service.acknowledgeTerminated(nodeId, session.id, session.connectionId).terminatedAt, confirmed.terminatedAt);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events").get().n, count); assert.equal(service.hostState(nodeId).sessions.length, 0);
+}));
 test("HTTP enforces session/CSRF/reauth and keeps takeover unavailable", async () => fixture(async ({ db, identity }) => {
   const origin = "http://127.0.0.1:5173";
   const server = createStackPilotServer({ env: { STACKPILOT_COOKIE_SECURE: "0", STACKPILOT_ALLOWED_ORIGINS: origin }, database: db, identity, platform: new FakePlatformAdapter() });

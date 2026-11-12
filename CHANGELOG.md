@@ -2,6 +2,15 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.44 - 2026-11-13
+
+### Added
+
+- Provision independent UUID-bound Linux accounts with durable creation intents, root-owned state and explicit shell, service-operator and host-admin sudo profiles.
+- Add a native fixed service wrapper, service privilege/lifecycle inspection and effective sudo checks that reject inherited privileges or configuration drift.
+- Synchronize desired policies over signed helper requests and acknowledge actual application/UID separately from stored intent; revoke old access before privilege changes.
+- Add real disposable Linux account, sudo and service-operation tests alongside the PAM ABI checks. Full SSH takeover remains disabled while configuration transactions and independent verification are pending.
+
 ## 0.3.0-preview.43 - 2026-11-13
 
 ### Added

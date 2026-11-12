@@ -11,6 +11,8 @@ import { ProcessInspector } from "./processes.js";
 import { SessionScopes } from "./systemd.js";
 import { SessionRuntime } from "./runtime.js";
 import { startPamSocket } from "./server.js";
+import { AccountManager } from "./accounts.js";
+import { ServiceInspector } from "./services.js";
 
 export async function readEnrollment(path: string) {
   const fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -39,9 +41,20 @@ async function main() {
   if (process.argv[2] !== undefined && process.argv[2] !== "run") throw new Error("Unknown SSH helper command");
   const identity = { ...await store.identity(), privateKey };
   const processes = new ProcessInspector(); await processes.cgroup(process.pid);
-  const runtime = new SessionRuntime(store, controller, identity, processes, new SessionScopes()); await runtime.initialize();
+  const services = new ServiceInspector();
+  const accounts: AccountManager = new AccountManager(store, identity.nodeId, account => runtime.terminateAccount(account), unit => services.validate(unit)); await accounts.initialize();
+  const runtime: SessionRuntime = new SessionRuntime(store, controller, identity, processes, new SessionScopes(), accounts); await runtime.initialize();
   const socket = await startPamSocket(runtime); let timer: NodeJS.Timeout | undefined; let stopped = false;
-  const tick = async () => { try { await runtime.synchronize(); } catch { process.stderr.write("SSH session reconciliation failed; local systemd deadlines remain active.\n"); } finally { if (!stopped) timer = setTimeout(() => void tick(), 10_000); } };
+  const tick = async () => {
+    try {
+      const desired = await runtime.synchronize();
+      for (const policy of desired?.policies ?? []) {
+        try { const receipt = await accounts.apply(policy); if (policy.appliedRevision !== policy.revision || policy.systemUid !== receipt.uid) await controller.policyAck(identity, policy, true, receipt.uid); }
+        catch { await controller.policyAck(identity, policy, false).catch(() => undefined); process.stderr.write("SSH account policy could not be applied; access remains unavailable.\n"); }
+      }
+    } catch { process.stderr.write("SSH session reconciliation failed; local systemd deadlines remain active.\n"); }
+    finally { if (!stopped) timer = setTimeout(() => void tick(), 10_000); }
+  };
   timer = setTimeout(() => void tick(), 10_000);
   for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => { stopped = true; clearTimeout(timer); socket.close(); });
   process.stdout.write("SSH PAM helper listening on its root-only local socket.\n");

@@ -50,4 +50,4 @@ npm run db:restore --workspace @stackpilot/controller -- .stackpilot/backups/sta
 
 Legacy import validates the JSON, hashes the source and records an idempotency marker in the same transaction. It never deletes or rewrites `.stackpilot/controller-agent-state.json`. Restore first checks SQLite integrity and schema version, then atomically installs the candidate while preserving the prior database as `.before-restore`. Stop the Controller before restore. Keep the database, backup and master key in separate protected backup locations; a database backup without its matching master key cannot recover encrypted values.
 
-Production retention and isolated restore drills are documented in [backup and restore](../backup-restore/README.md). Schema 10 cannot be down-migrated; rollback to an older schema restores the verified pre-upgrade backup with the matching prior application version.
+Production retention and isolated restore drills are documented in [backup and restore](../backup-restore/README.md). Schema 12 cannot be down-migrated; rollback to an older schema restores the verified pre-upgrade backup with the matching prior application version.

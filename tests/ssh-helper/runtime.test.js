@@ -27,7 +27,7 @@ function fixture() {
     members: async value => alive && value === path ? [100, 101, 102] : [],
   };
   const scopes = { create: async (name, pids, remaining) => { assert.deepEqual(pids, [100, 101, 102]); assert(remaining <= 59_001); creates++; path = `/system.slice/${name}`; }, stop: async () => { stops++; alive = false; } };
-  const make = () => new SessionRuntime(store, controller, { nodeId, credentialId: randomUUID(), privateKey: null }, processes, scopes);
+  const make = () => new SessionRuntime(store, controller, { nodeId, credentialId: randomUUID(), privateKey: null }, processes, scopes, { verify: async () => undefined });
   return { make, session, store, scopes, processes, controller, offline: () => { online = false; }, online: () => { online = true; }, deny: () => { denied = true; }, revoke: () => { revoked = true; }, advance: ms => { time += ms; }, records: () => records, counts: () => ({ creates, stops, acks }) };
 }
 test("scope is attached before PAM access and transport time cannot extend the lease", async () => {

@@ -1,0 +1,62 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { chmod, copyFile, lstat, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import test from "node:test";
+import { sshAccountName } from "@stackpilot/contracts";
+import { RootStore } from "../../apps/ssh-helper/dist/store.js";
+import { AccountManager } from "../../apps/ssh-helper/dist/accounts.js";
+import { ServiceInspector } from "../../apps/ssh-helper/dist/services.js";
+import { runCommand } from "../../apps/ssh-helper/dist/commands.js";
+
+const execute = promisify(execFile);
+test("real Linux users, sudo rules and native service wrapper preserve the granted boundary", { timeout: 120_000 }, async t => {
+  assert.equal(process.platform, "linux"); assert.equal(process.getuid(), 0);
+  assert.equal(process.env.STACKPILOT_DISPOSABLE_SYSTEMD_TEST, "1");
+  assert.equal((await readFile("/proc/1/comm", "utf8")).trim(), "systemd");
+  await assert.rejects(execute("/usr/bin/systemd-detect-virt", ["--container", "--quiet"]), error => error.code === 1);
+  const directory = await mkdtemp("/var/tmp/stackpilot-account-native-"); await chmod(directory, 0o700);
+  const userId = randomUUID(), nodeId = randomUUID(), account = sshAccountName(userId);
+  const unit = `spssh-fixture-${randomUUID()}.service`, unitPath = `/etc/systemd/system/${unit}`;
+  const extra = `/etc/sudoers.d/stackpilot-test-${randomUUID()}`;
+  const wrapper = "/usr/libexec/stackpilot-ssh-service";
+  assert.equal(await lstat(wrapper).catch(error => { if (error.code === "ENOENT") return null; throw error; }), null, "Refuse to overwrite an installed service wrapper");
+  const store = new RootStore(join(directory, "state")); await store.prepare();
+  const inspector = new ServiceInspector(); let closures = 0;
+  const sudoListings = [];
+  const accounts = new AccountManager(store, nodeId, async () => { closures++; }, unit => inspector.validate(unit), async (file, args) => { const output = await runCommand(file, args); if (file === "/usr/bin/sudo") sudoListings.push(output); return output; }); await accounts.initialize();
+  const policy = { id: randomUUID(), userId, nodeId, account, profile: "shell", services: [], enabled: true, sessionSeconds: 60, revision: 1, appliedRevision: 0, updatedAt: new Date().toISOString() };
+  const asUser = args => execute("/usr/sbin/runuser", ["-u", account, "--", ...args], { env: { PATH: "/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C", LC_ALL: "C" } });
+  try {
+    const receipt = await accounts.apply(policy); assert(receipt.uid >= 10000); await accounts.verify(account);
+    await accounts.apply(policy); assert.equal(closures, 1);
+    await assert.rejects(asUser(["/usr/bin/sudo", "-n", "/usr/bin/id", "-u"]));
+    await accounts.apply({ ...policy, revision: 2, profile: "host-admin" });
+    assert.equal((await asUser(["/usr/bin/sudo", "-n", "/usr/bin/id", "-u"])).stdout.trim(), "0");
+    await writeFile(unitPath, `[Unit]\nDescription=Disposable SSH boundary test\nDefaultDependencies=no\n[Service]\nUser=${account}\nGroup=${account}\nNoNewPrivileges=yes\nCapabilityBoundingSet=\nExecStart=/usr/bin/sleep 300\n`, { mode: 0o644 });
+    await execute("/usr/bin/systemctl", ["daemon-reload"]);
+    await inspector.validate(unit);
+    await copyFile("apps/ssh-helper/build/stackpilot-ssh-service", wrapper); await chmod(wrapper, 0o755);
+    const operator = { ...policy, revision: 3, profile: "service-operator", services: [unit] };
+    await accounts.apply(operator); await accounts.verify(account);
+    await asUser(["/usr/bin/sudo", "-n", wrapper, "start", unit]);
+    assert.equal((await execute("/usr/bin/systemctl", ["is-active", unit])).stdout.trim(), "active");
+    await assert.rejects(asUser(["/usr/bin/sudo", "-n", "/usr/bin/id", "-u"]));
+    await assert.rejects(asUser(["/usr/bin/sudo", "-n", wrapper, "start", "ssh.service"]));
+    await writeFile(extra, `${account} ALL=(root) NOPASSWD: /usr/bin/id\n`, { mode: 0o440 });
+    await assert.rejects(accounts.verify(account), /exceeds/);
+    await unlink(extra); await accounts.verify(account);
+    await accounts.apply({ ...operator, enabled: false, revision: 4 });
+    await assert.rejects(accounts.verify(account)); await assert.rejects(asUser(["/usr/bin/sudo", "-n", wrapper, "restart", unit]));
+  } catch (error) { t.diagnostic(JSON.stringify(sudoListings)); throw error; } finally {
+    await execute("/usr/bin/systemctl", ["stop", unit]).catch(() => undefined);
+    await unlink(unitPath).catch(() => undefined); await execute("/usr/bin/systemctl", ["daemon-reload"]);
+    await unlink(extra).catch(() => undefined); await unlink(`/etc/sudoers.d/stackpilot-ssh-${account}`).catch(() => undefined);
+    await unlink(`/etc/stackpilot-ssh-helper/service-grants/${account}`).catch(() => undefined); await unlink(wrapper).catch(() => undefined);
+    await execute("/usr/bin/loginctl", ["terminate-user", account]).catch(() => undefined);
+    await execute("/usr/sbin/userdel", ["--remove", account]).catch(async error => { await assert.rejects(execute("/usr/bin/getent", ["passwd", account]), { code: 2 }, error.message); });
+    await rm(directory, { recursive: true, force: true });
+  }
+});

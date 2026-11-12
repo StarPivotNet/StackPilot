@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
-import { SshCredentialSchema, SshHostSchema, SshPolicySchema, SshSessionSchema, SSH_LOGIN_WINDOW_SECONDS, type SshCredential, type SshPolicy, type SshPolicyInput, type SshSession } from "@stackpilot/contracts";
+import { SshCredentialSchema, SshHostSchema, SshPolicySchema, SshSessionSchema, SSH_LOGIN_WINDOW_SECONDS, sshAccountName, type SshCredential, type SshPolicy, type SshPolicyInput, type SshSession } from "@stackpilot/contracts";
 import type { Principal } from "../../identity/types.js";
 import type { AuditRepository } from "../../audit/auditRepository.js";
 import { ServiceError } from "../serviceError.js";
@@ -15,8 +15,9 @@ type PayloadRow = { payload: string };
 export class SshService {
   constructor(private readonly db: Database.Database, private readonly audit: AuditRepository, private readonly clock = () => Date.now()) {}
   private now() { return new Date(this.clock()).toISOString(); }
-  private record(actor: string, nodeId: string, action: string, targetId: string, parameters: unknown = {}) {
-    this.audit.append({ actorType: "user", actorId: actor, source: "ssh-service", targetType: "ssh", targetId, action: `ssh.${action}`, parameters: { nodeId, ...(parameters as object) }, outcome: "success", authorization: "session+rbac+node-scope", requestId: randomUUID() });
+  private record(actor: string, nodeId: string, action: string, targetId: string, parameters: unknown = {}, outcome = "success") {
+    const helper = actor.startsWith("helper:");
+    this.audit.append({ actorType: helper ? "ssh-helper" : "user", actorId: helper ? actor.slice(7) : actor, source: "ssh-service", targetType: "ssh", targetId, action: `ssh.${action}`, parameters: { nodeId, ...(parameters as object) }, outcome, authorization: helper ? "signed-node-helper" : "session+rbac+node-scope", requestId: randomUUID() });
   }
   private userAllowed(userId: string, nodeId: string) {
     return !!this.db.prepare(`SELECT 1 FROM users u WHERE u.id=? AND u.disabled_at IS NULL
@@ -84,7 +85,7 @@ export class SshService {
       const old = previous ? SshPolicySchema.parse(JSON.parse(previous.payload)) : undefined;
       // Base36 retains the entire immutable UUID and fits Linux's account limit.
       // The host adapter must still refuse pre-existing accounts it does not own.
-      const policy = SshPolicySchema.parse({ ...input, services: [...new Set(input.services)].sort(), id: old?.id ?? randomUUID(), account: old?.account ?? `sp_${BigInt(`0x${input.userId.replaceAll("-", "")}`).toString(36)}`, revision: (old?.revision ?? 0) + 1, appliedRevision: 0, updatedAt: this.now() });
+      const policy = SshPolicySchema.parse({ ...input, services: [...new Set(input.services)].sort(), id: old?.id ?? randomUUID(), account: old?.account ?? sshAccountName(input.userId), revision: (old?.revision ?? 0) + 1, appliedRevision: 0, updatedAt: this.now() });
       if (old) this.invalidate(old.id);
       this.db.prepare("INSERT INTO ssh_policies(id,node_id,user_id,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload").run(policy.id, input.nodeId, input.userId, JSON.stringify(policy));
       this.record(principal.userId, input.nodeId, "policy.updated", policy.id, { profile: policy.profile, revision: policy.revision });
@@ -148,15 +149,33 @@ export class SshService {
   }
   hostState(nodeId: string) {
     const sessions = (this.db.prepare("SELECT payload FROM ssh_sessions WHERE node_id=?").all(nodeId) as PayloadRow[]).map(row => SshSessionSchema.parse(JSON.parse(row.payload)));
-    return { controllerTime: this.now(), sessions: sessions.filter(session => !session.terminatedAt).map(session => ({ id: session.id, connectionId: session.connectionId, terminate: !!session.terminationRequestedAt || Date.parse(session.expiresAt) <= this.clock() || !this.userAllowed(session.userId, nodeId) || !this.nodeActive(nodeId) })) };
+    const policies = (this.db.prepare("SELECT payload FROM ssh_policies WHERE node_id=?").all(nodeId) as PayloadRow[]).map(row => SshPolicySchema.parse(JSON.parse(row.payload))).map(policy => ({ ...policy, enabled: policy.enabled && this.userAllowed(policy.userId, nodeId) && this.nodeActive(nodeId) }));
+    return { controllerTime: this.now(), policies, sessions: sessions.filter(session => !session.terminatedAt).map(session => ({ id: session.id, connectionId: session.connectionId, terminate: !!session.terminationRequestedAt || Date.parse(session.expiresAt) <= this.clock() || !this.userAllowed(session.userId, nodeId) || !this.nodeActive(nodeId) })) };
   }
-  acknowledgeTerminated(nodeId: string, sessionId: string, connectionId: string) {
+  acknowledgePolicy(nodeId: string, input: { policyId: string; revision: number; enabled: boolean; applied: boolean; systemUid: number | null }, actor = "helper:trusted-adapter") {
+    return this.db.transaction(() => {
+      const policy = this.policy(input.policyId);
+      if (policy.nodeId !== nodeId || !this.nodeActive(nodeId)) throw denied();
+      const enabled = policy.enabled && this.userAllowed(policy.userId, nodeId);
+      if (policy.revision !== input.revision || enabled !== input.enabled || (input.applied && enabled && (!Number.isSafeInteger(input.systemUid) || input.systemUid! < 1000))) throw new ServiceError(409, "BAD_REQUEST", "SSH 策略已变更或系统身份未确认，请重新同步");
+      const appliedRevision = input.applied ? input.revision : 0;
+      const applyError = input.applied ? null : "POLICY_NOT_APPLIED";
+      const systemUid = input.applied ? input.systemUid : null;
+      if (policy.appliedRevision !== appliedRevision || policy.applyError !== applyError || policy.systemUid !== systemUid) {
+        policy.appliedRevision = appliedRevision; policy.applyError = applyError; policy.lastAppliedAt = input.applied ? this.now() : null; policy.systemUid = systemUid;
+        this.db.prepare("UPDATE ssh_policies SET payload=? WHERE id=?").run(JSON.stringify(policy), policy.id);
+        this.record(actor, nodeId, input.applied ? "policy.applied" : "policy.apply-failed", policy.id, { revision: policy.revision }, input.applied ? "success" : "failure");
+      }
+      return { policyId: policy.id, appliedRevision };
+    }).immediate();
+  }
+  acknowledgeTerminated(nodeId: string, sessionId: string, connectionId: string, actor = "helper:trusted-adapter") {
     return this.db.transaction(() => {
       const row = this.db.prepare("SELECT payload FROM ssh_sessions WHERE id=? AND node_id=?").get(sessionId, nodeId) as PayloadRow | undefined;
       if (!row) throw new ServiceError(404, "NOT_FOUND", "SSH 会话不存在");
       const session = SshSessionSchema.parse(JSON.parse(row.payload));
       if (session.connectionId !== connectionId) throw denied();
-      if (!session.terminatedAt) { session.terminatedAt = this.now(); this.writeSession(session); this.record(session.userId, nodeId, "session.terminated", session.id); }
+      if (!session.terminatedAt) { session.terminatedAt = this.now(); this.writeSession(session); this.record(actor, nodeId, "session.terminated", session.id); }
       return session;
     }).immediate();
   }

@@ -154,6 +154,22 @@ test("termination acknowledgement requires exact node and connection and is idem
   advance(1000); assert.equal(service.acknowledgeTerminated(nodeId, session.id, session.connectionId).terminatedAt, confirmed.terminatedAt);
   assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events").get().n, count); assert.equal(service.hostState(nodeId).sessions.length, 0);
 }));
+test("policy acknowledgement requires the current node, revision and effective access", async () => fixture(({ service, policy, nodeId, principal, db }) => {
+  const input = { policyId: policy.id, revision: policy.revision, enabled: true, applied: true, systemUid: 10000 };
+  assert.throws(() => service.acknowledgePolicy(randomUUID(), input));
+  assert.throws(() => service.acknowledgePolicy(nodeId, { ...input, revision: policy.revision + 1 }));
+  assert.throws(() => service.acknowledgePolicy(nodeId, { ...input, enabled: false }));
+  assert.throws(() => service.acknowledgePolicy(nodeId, { ...input, systemUid: null }));
+  service.acknowledgePolicy(nodeId, input, "helper:test-credential");
+  const current = service.list(principal).policies[0]; assert.equal(current.appliedRevision, current.revision); assert(current.lastAppliedAt);
+  const event = db.prepare("SELECT actor_type,actor_id FROM audit_events WHERE action='ssh.policy.applied'").get(); assert.equal(event.actor_type, "ssh-helper"); assert.equal(event.actor_id, "test-credential");
+}));
+test("failed policy application stays unavailable and exposes one persistent failure", async () => fixture(({ service, policy, nodeId, principal, db }) => {
+  const input = { policyId: policy.id, revision: policy.revision, enabled: true, applied: false, systemUid: null };
+  service.acknowledgePolicy(nodeId, input); service.acknowledgePolicy(nodeId, input);
+  const current = service.list(principal).policies[0]; assert.equal(current.appliedRevision, 0); assert.equal(current.applyError, "POLICY_NOT_APPLIED"); assert.equal(current.lastAppliedAt, null);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events WHERE action='ssh.policy.apply-failed' AND outcome='failure'").get().n, 1);
+}));
 test("HTTP enforces session/CSRF/reauth and keeps takeover unavailable", async () => fixture(async ({ db, identity }) => {
   const origin = "http://127.0.0.1:5173";
   const server = createStackPilotServer({ env: { STACKPILOT_COOKIE_SECURE: "0", STACKPILOT_ALLOWED_ORIGINS: origin }, database: db, identity, platform: new FakePlatformAdapter() });

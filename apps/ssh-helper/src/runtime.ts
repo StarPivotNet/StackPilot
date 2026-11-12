@@ -8,7 +8,7 @@ import type { LocalSession, RootStore } from "./store.js";
 export class SessionRuntime {
   private records: LocalSession[] = [];
   private tail: Promise<unknown> = Promise.resolve();
-  constructor(private readonly store: RootStore, private readonly controller: ControllerClient, private readonly identity: HelperIdentity, private readonly processes: ProcessInspector, private readonly scopes: SessionScopes) {}
+  constructor(private readonly store: RootStore, private readonly controller: ControllerClient, private readonly identity: HelperIdentity, private readonly processes: ProcessInspector, private readonly scopes: SessionScopes, private readonly accounts: { verify(account: string): Promise<void> } = { verify: async () => { throw new Error("SSH account verifier unavailable"); } }) {}
   private exclusive<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.tail.then(operation); this.tail = result.catch(() => undefined); return result;
   }
@@ -16,6 +16,7 @@ export class SessionRuntime {
   async authenticate(monitorPid: number, phasePid: number, account: string, password: string) {
     return this.exclusive(async () => {
       if (this.records.length >= 1024) throw new Error("SSH connection limit reached");
+      await this.accounts.verify(account);
       const connection = await this.processes.connection(monitorPid, phasePid);
       if (this.records.some(record => record.session.connectionId === connection.connectionId && !record.terminated)) throw new Error("SSH connection already authenticated");
       const before = await this.processes.bootMs();
@@ -39,9 +40,13 @@ export class SessionRuntime {
   async check(phasePid: number, account: string) {
     return this.exclusive(async () => {
       await this.processes.sshd(phasePid); const cgroup = await this.processes.cgroup(phasePid); const bootId = await this.processes.bootId();
+      await this.accounts.verify(account);
       const record = this.records.find(value => value.cgroup === cgroup && value.session.account === account && value.bootId === bootId && !value.terminated && !value.terminationRequested);
       if (!record || record.deadlineBootMs <= await this.processes.bootMs()) throw new Error("SSH session is not authorized");
     });
+  }
+  async terminateAccount(account: string) {
+    return this.exclusive(async () => { for (const record of this.records) if (record.session.account === account && !record.terminated) await this.stop(record); });
   }
   private async stop(record: LocalSession) {
     if (record.terminated) return;
@@ -65,7 +70,8 @@ export class SessionRuntime {
         try {
         if (!record.terminated) {
           const authorization = remote?.sessions.find(value => value.id === record.session.id && value.connectionId === record.session.connectionId);
-          if (record.terminationRequested || revoked || (remote && (!authorization || authorization.terminate)) || record.bootId !== bootId || record.deadlineBootMs <= now || !(await this.processes.members(record.cgroup)).length) await this.stop(record);
+          let accountValid = true; try { await this.accounts.verify(record.session.account); } catch { accountValid = false; }
+          if (!accountValid || record.terminationRequested || revoked || (remote && (!authorization || authorization.terminate)) || record.bootId !== bootId || record.deadlineBootMs <= now || !(await this.processes.members(record.cgroup)).length) await this.stop(record);
         }
         if (record.terminated && !record.acknowledged) {
           try { await this.controller.acknowledge(this.identity, record.session); record.acknowledged = true; } catch { /* Durable receipt is retried on the next cycle. */ }
@@ -74,6 +80,7 @@ export class SessionRuntime {
       }
       this.records = this.records.filter(record => !record.acknowledged); await this.store.saveSessions(this.records);
       if (failed) throw new Error("Some SSH sessions require reconciliation");
+      return remote;
     });
   }
 }

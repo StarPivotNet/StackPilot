@@ -1,6 +1,6 @@
 # StackPilot SSH helper
 
-Independent root boundary for managed SSH, using a fixed PAM Unix socket and node-bound signed HTTPS requests. The Agent remains non-root. The current workspace contains enrollment, TLS, native PAM hooks and local lifetime supervision; complete takeover and its installer are still pending. Installing files does not change authentication.
+Independent root boundary for managed SSH, using a fixed PAM Unix socket and node-bound signed HTTPS requests. The Agent remains non-root. The workspace contains enrollment, TLS, native PAM hooks, local lifetime supervision and account/sudo policy application; complete takeover and its installer are still pending. Installing files does not change authentication.
 
 Supported execution target: native Debian 12 or Ubuntu 24.04, x86_64, systemd, unified cgroup v2. The entry point rejects containers, non-root users and unsupported platforms. Do not start a second instance from inside an SSH connection it is supervising.
 
@@ -16,7 +16,7 @@ npm run test --workspace @stackpilot/ssh-helper
 npm run build:pam --workspace @stackpilot/ssh-helper
 ```
 
-Windows can run TypeScript, TLS and isolated state-machine tests. Permission/symlink tests require Linux; the CI native job executes them as root and compiles the PAM ABI harness. The ABI harness uses an isolated PAM configuration and a test-only root Unix server in an explicitly disposable GitHub runner. It does not change `/etc/pam.d/sshd`, start sshd, or prove complete SSH authentication.
+Windows can run TypeScript, TLS and isolated state-machine tests. Permission/symlink tests require Linux. The native tests must run as root in an explicitly disposable native systemd environment with `STACKPILOT_DISPOSABLE_SYSTEMD_TEST=1`. They create and remove a unique Linux account, sudo grants and a temporary service, and refuse to overwrite an installed service wrapper. The PAM ABI harness uses an isolated PAM configuration and a test-only root Unix server. These checks do not change `/etc/pam.d/sshd` or prove complete SSH authentication.
 
 ## Configuration
 
@@ -28,4 +28,6 @@ State defaults to `/var/lib/stackpilot-ssh-helper` (`STACKPILOT_SSH_STATE_DIR`),
 
 The `run` entry point restores the root-owned session journal and reconciles every 10 seconds after the previous cycle settles. Online authorization is read through signed `GET /api/ssh-helper/state`; actual completion receipts are separate signed POSTs. Local scopes enforce the original lease even if the helper or Controller fails. Accepted sessions are never automatically renewed or recreated. Unacknowledged termination receipts survive restart. At most 1024 active/pending local records and 16 concurrent PAM socket requests are admitted; excess requests fail closed.
 
-Full root users are trusted and can disable local controls. Killing a scope does not roll back already-completed operations or tasks explicitly handed to other system services. Host takeover must not enable `pam_systemd` or another hook that moves accepted SSH session processes outside the supervised scope. Account provisioning, effective configuration inspection, rollback and independent fresh-connection verification are required before enabling this module in sshd.
+The signed policy loop applies separate accounts and verifies real UID, private group, protected sudo files and effective grants before acknowledging a revision. Unchanged policies do not terminate sessions. Restricted operations require root-owned binaries/units, an isolated non-root service user, no capabilities, `NoNewPrivileges=yes`, `DefaultDependencies=no` and no lifecycle propagation or additional dependencies beyond `system.slice`. Control services are denied. The non-setuid wrapper accepts only exact start/stop/restart calls for root-owned allowlisted units.
+
+Full root users are trusted and can disable local controls. Killing a scope does not roll back already-completed operations or tasks explicitly handed to other system services. Host takeover must not enable `pam_systemd` or another hook that moves accepted SSH session processes outside the supervised scope. Effective configuration inspection, rollback and independent fresh-connection verification are required before enabling this module in sshd.

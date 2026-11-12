@@ -1,6 +1,6 @@
 import { createHash, randomBytes, sign, type KeyObject } from "node:crypto";
 import { request } from "node:https";
-import { sshHelperSignaturePayload, SshHelperEnrolledSchema, SshHelperStateSchema, SshSessionSchema, type SshSession } from "@stackpilot/contracts";
+import { sshHelperSignaturePayload, SshHelperEnrolledSchema, SshHelperStateSchema, SshSessionSchema, type SshSession, type SshPolicy } from "@stackpilot/contracts";
 
 export type HelperIdentity = { nodeId: string; credentialId: string; privateKey: KeyObject };
 export class ControllerError extends Error { constructor(readonly status: number) { super(`SSH Controller request failed (${status})`); } }
@@ -38,4 +38,5 @@ export class ControllerClient {
   }
   async state(identity: HelperIdentity) { return SshHelperStateSchema.parse(await this.call("/api/ssh-helper/state", "GET", undefined, identity)); }
   async acknowledge(identity: HelperIdentity, session: SshSession) { await this.call("/api/ssh-helper/sessions/ack", "POST", { sessionId: session.id, connectionId: session.connectionId }, identity); }
+  async policyAck(identity: HelperIdentity, policy: SshPolicy, applied: boolean, systemUid: number | null = null) { await this.call("/api/ssh-helper/policies/ack", "POST", { policyId: policy.id, revision: policy.revision, enabled: policy.enabled, applied, systemUid }, identity); }
 }

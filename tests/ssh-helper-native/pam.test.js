@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdir, mkdtemp, lstat, writeFile, rm, unlink } from "node:fs/promises";
+import { mkdir, mkdtemp, lstat, writeFile, rm, unlink, readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { once } from "node:events";
 import { join, resolve } from "node:path";
@@ -11,7 +11,9 @@ import test from "node:test";
 const execute = promisify(execFile);
 test("native PAM ABI sends bound process identities and fails closed on invalid users, passwords and helper responses", async () => {
   assert.equal(process.platform, "linux"); assert.equal(process.getuid(), 0);
-  assert.equal(process.env.STACKPILOT_DISPOSABLE_SYSTEMD_TEST, "1"); assert.equal(process.env.GITHUB_ACTIONS, "true");
+  assert.equal(process.env.STACKPILOT_DISPOSABLE_SYSTEMD_TEST, "1");
+  assert.equal((await readFile("/proc/1/comm", "utf8")).trim(), "systemd");
+  await assert.rejects(execute("/usr/bin/systemd-detect-virt", ["--container", "--quiet"]), error => error.code === 1);
   const path = "/run/stackpilot-ssh-helper/pam.sock"; assert.equal(await lstat(path).catch(error => { if (error.code === "ENOENT") return null; throw error; }), null, "Refuse to replace an existing PAM helper socket");
   await mkdir("/run/stackpilot-ssh-helper", { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(join(tmpdir(), "stackpilot-native-pam-")); const binary = join(directory, "pam-harness");

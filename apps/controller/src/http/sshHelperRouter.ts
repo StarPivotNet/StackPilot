@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { SshHelperAuthSchema, SshHelperEnrollSchema, SshHelperLoginSchema, SshHelperReportSchema, SshHelperSessionAckSchema, SshHelperStateSchema, SSH_HELPER_PROTOCOL } from "@stackpilot/contracts";
+import { SshHelperAuthSchema, SshHelperEnrollSchema, SshHelperLoginSchema, SshHelperReportSchema, SshHelperSessionAckSchema, SshHelperStateSchema, SshHelperPolicyAckSchema, SSH_HELPER_PROTOCOL } from "@stackpilot/contracts";
 import type { RequestContext } from "./types.js";
 import { ServiceError } from "../modules/serviceError.js";
 import { sendJson } from "./response/json.js";
@@ -32,7 +32,11 @@ export function routeSshHelperRequest(context: RequestContext) {
   }
   if (url.pathname === "/api/ssh-helper/sessions/ack" && request.method === "POST") {
     const input = parseSchema(SshHelperSessionAckSchema, context.body, "SSH 会话结束确认");
-    sendJson(response, 200, services.ssh.acknowledgeTerminated(identity.nodeId, input.sessionId, input.connectionId)); return;
+    sendJson(response, 200, services.ssh.acknowledgeTerminated(identity.nodeId, input.sessionId, input.connectionId, `helper:${identity.credentialId}`)); return;
+  }
+  if (url.pathname === "/api/ssh-helper/policies/ack" && request.method === "POST") {
+    const input = parseSchema(SshHelperPolicyAckSchema, context.body, "SSH 策略应用确认");
+    sendJson(response, 200, services.ssh.acknowledgePolicy(identity.nodeId, input, `helper:${identity.credentialId}`)); return;
   }
   throw new ServiceError(404, "NOT_FOUND", "SSH helper 接口不存在");
 }

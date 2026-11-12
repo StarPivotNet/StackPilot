@@ -7,6 +7,7 @@ import {
 } from "../sites/index.js";
 
 export const RemoteTaskStatusSchema = z.enum(["queued", "dispatched", "running", "succeeded", "failed", "cancelled", "expired"]);
+export const AGENT_TASK_CONCURRENCY = 4;
 export const SystemSummaryTaskParametersSchema = z.object({ includeLoad: z.boolean().default(true) }).strict();
 const ServiceNameSchema = z.string().min(1).max(120).regex(/^[A-Za-z0-9][A-Za-z0-9_.@:-]*$/);
 export const ServiceStatusTaskParametersSchema = z.object({ serviceName: ServiceNameSchema }).strict();
@@ -36,7 +37,7 @@ export const RemoteTaskEnvelopeSchema = z.object({
   protocolVersion: ProtocolVersionSchema, taskId: z.string().uuid(), type: RemoteTaskTypeSchema, targetNodeId: z.string().uuid(),
   parameters: z.record(z.string(), z.unknown()), createdAt: z.string().datetime(), expiresAt: z.string().datetime(),
   idempotencyKey: z.string().min(8).max(160), requester: z.string().min(1).max(160), traceId: z.string().uuid(),
-  requiredCapability: AgentCapabilitySchema, attempt: z.number().int().min(0).max(2), maxAttempts: z.number().int().min(1).max(3),
+  requiredCapability: AgentCapabilitySchema, attempt: z.number().int().min(0).max(3), maxAttempts: z.number().int().min(1).max(3),
 }).strict();
 export const RemoteTaskResultSummarySchema = z.object({ message: z.string().max(1024), data: z.record(z.string(), z.unknown()).optional(), truncated: z.boolean().default(false) }).strict();
 export const RemoteTaskStatusUpdateSchema = z.object({

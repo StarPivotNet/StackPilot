@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import {
-  AGENT_PROTOCOL_VERSION, AgentEnrollmentResponseSchema, AgentHeartbeatResponseSchema, RemoteTaskPollResponseSchema, RotateCredentialResponseSchema,
+  AGENT_PROTOCOL_VERSION, AGENT_TASK_CONCURRENCY, AgentEnrollmentResponseSchema, AgentHeartbeatResponseSchema, RemoteTaskPollResponseSchema, RotateCredentialResponseSchema,
   type AgentEnrollmentRequest,
 } from "@stackpilot/contracts";
 import { activeAgentCapabilities } from "./capabilities/index.js";
@@ -15,6 +15,7 @@ import { collectPhysicalHostId, DatabaseSnapshotCache, SystemdDatabaseCollector 
 import { NginxSiteCollector, SiteSnapshotCache } from "./sites/nginxCollector.js";
 import { certHelperAvailable } from "./sites/helperClient.js";
 import { TaskExecutor } from "./tasks/executor.js";
+import { flushTaskUpdates } from "./tasks/delivery.js";
 import { terminalCommandsAvailable } from "./tasks/handlers/terminalCommand.js";
 import { ControllerClient } from "./transport/controllerClient.js";
 import { DatabaseHelperClient } from "./databases/helperClient.js";
@@ -100,14 +101,16 @@ export async function runAgent(env: NodeJS.ProcessEnv | Record<string, string | 
       const advertisedSystemdSnapshot = client.supportsSystemdSnapshot() ? systemdSnapshots.current : undefined;
       const advertisedFirewallDenySnapshot = client.supportsFirewallDenySnapshot() ? firewallDenySnapshots.current : undefined;
       AgentHeartbeatResponseSchema.parse(await client.json("/api/agent/heartbeat", createHeartbeat(config, identity.nodeId, capabilities, telemetry, telemetryCollectionFailed, siteSnapshots.current, fallbackDatabaseSnapshot, advertisedPhysicalHostId, advertisedSystemdSnapshot, advertisedFirewallDenySnapshot), identity));
-      for (const pending of executor.pendingUpdates()) { await client.json("/api/agent/tasks/status", pending, identity); await executor.markReported(pending.taskId); }
+      await flushTaskUpdates(executor, (pending) => client.json("/api/agent/tasks/status", pending, identity), (taskId, error) => {
+        agentLogger.log({ level: "warn", time: new Date().toISOString(), message: "Task result delivery failed; receipt retained", taskId, errorName: error instanceof Error ? error.name : "UnknownError" });
+      });
       const poll = RemoteTaskPollResponseSchema.parse(await client.json("/api/agent/tasks/poll", {}, identity));
       for (const taskId of poll.cancelledTaskIds) executor.cancel(taskId);
       for (const task of poll.tasks) {
-        const execution = executor.tryExecute(task, 4, (running) => client.json("/api/agent/tasks/status", running, identity));
+        const execution = executor.tryExecute(task, AGENT_TASK_CONCURRENCY, (running) => client.json("/api/agent/tasks/status", running, identity));
         if (!execution) continue;
         void execution.then(async (result) => {
-          if (result.status !== "running") { await client.json("/api/agent/tasks/status", result, identity); await executor.markReported(task.taskId); }
+          if (result.status !== "running") { await client.json("/api/agent/tasks/status", result, identity); await executor.markReported(task.taskId, result); }
         }).catch((error) => agentLogger.log({ level: "warn", time: new Date().toISOString(), message: "Task execution or result delivery failed", taskId: task.taskId, errorName: error instanceof Error ? error.name : "UnknownError" }));
       }
       failures = 0; await sleep(config.heartbeatSeconds * 1000);

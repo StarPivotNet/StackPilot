@@ -50,7 +50,7 @@ export function loadAgentConfig(env: NodeJS.ProcessEnv | Record<string, string |
     rotateCredential: value.STACKPILOT_AGENT_ROTATE_CREDENTIAL === "1",
     databaseHelperSocket: resolve(value.STACKPILOT_DATABASE_HELPER_SOCKET),
     databaseCollectionSeconds: value.STACKPILOT_DATABASE_COLLECTION_SECONDS,
-    agentVersion: "0.3.0-preview.39",
+    agentVersion: "0.3.0-preview.40",
     platform: currentPlatform as AgentConfig["platform"],
   };
 }

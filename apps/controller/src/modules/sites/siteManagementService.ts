@@ -335,8 +335,9 @@ export class RemoteSiteExecutor implements SiteExecutor {
     return task.taskId;
   }
   async reconcile(operation: SiteOperation) {
-    const task = (await this.tasks.list(operation.nodeId)).find((item) => item.taskId === operation.taskId
-      || (!operation.taskId && (item.parameters as { operationId?: unknown }).operationId === operation.operationId));
+    const candidates = operation.taskId ? [await this.tasks.get(operation.taskId, operation.nodeId)] : await this.tasks.list(operation.nodeId);
+    const task = candidates.find((item) => item && (item.taskId === operation.taskId
+      || (!operation.taskId && (item.parameters as { operationId?: unknown }).operationId === operation.operationId)));
     if (!task && !operation.taskId && Date.now() - Date.parse(operation.updatedAt) < 60_000) return null;
     if (!task) return { status: "failed" as const, result: null, errorCode: operation.taskId ? "REMOTE_TASK_NOT_FOUND" : "DISPATCH_RESULT_UNKNOWN" };
     if (["queued", "dispatched"].includes(task.status)) return { status: "queued" as const, result: null, errorCode: null, taskId: task.taskId };

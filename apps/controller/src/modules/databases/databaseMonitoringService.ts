@@ -81,7 +81,7 @@ export class DatabaseMonitoringService {
   }
 
   async getInstances(access: DatabaseAccess): Promise<DatabaseInstancesPayload> {
-    const [state, localSnapshot] = await Promise.all([this.repository.read(), this.collectLocal()]);
+    const [state, localSnapshot] = await Promise.all([this.repository.read({ sections: ["nodes"] }), this.collectLocal()]);
     const authorizedNodes = state.nodes.filter((node) => !node.revokedAt && (access.nodeScope === "all" || access.nodeScope.includes(node.nodeId)));
     const nodes = authorizedNodes.filter((node) => node.databaseSnapshot);
     const pendingNodes = authorizedNodes.filter((node) => !node.databaseSnapshot);

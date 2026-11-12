@@ -18,7 +18,7 @@ export class EnrollmentService {
     await this.repository.update((state) => {
       state.enrollments.push({ enrollmentId, tokenDigest: digest(token), nodeName: input.nodeName, expiresAt, usedAt: null, revokedAt: null });
       state.audits.push(audit({ requester, nodeId: null, taskId: null, event: "enrollment.created", taskType: null, parameters: { enrollmentId, nodeName: input.nodeName, expiresAt }, fromStatus: null, toStatus: null, resultSummary: null, traceId }));
-    });
+    }, { sections: [] });
     return { enrollmentId, token, expiresAt, purpose: "agent-enrollment" as const };
   }
 
@@ -28,7 +28,7 @@ export class EnrollmentService {
       if (!enrollment) throw new ServiceError(404, "NOT_FOUND", "注册凭据不存在");
       if (!enrollment.revokedAt) enrollment.revokedAt = new Date().toISOString();
       state.audits.push(audit({ requester, nodeId: null, taskId: null, event: "enrollment.revoked", taskType: null, parameters: { enrollmentId }, fromStatus: null, toStatus: null, resultSummary: null, traceId }));
-    });
+    }, { sections: ["enrollments"] });
   }
 
   async enroll(input: AgentEnrollmentRequest, traceId: string) {
@@ -50,7 +50,7 @@ export class EnrollmentService {
       state.credentials.push({ credentialId, nodeId, publicKey: input.publicKey, createdAt: now, revokedAt: null, replacedBy: null, rotationId: null });
       state.audits.push(audit({ requester: "agent-enrollment", nodeId, taskId: null, event: "node.enrolled", taskType: null, parameters: { nodeName: input.nodeName, credentialId, allowedCapabilities }, fromStatus: null, toStatus: "pending", resultSummary: null, traceId }));
       response = { nodeId, credentialId, protocolVersion: AGENT_PROTOCOL_VERSION, controllerTime: now, heartbeatIntervalSeconds: 15 };
-    });
+    }, { sections: ["enrollments"] });
     if (!response) throw new ServiceError(500, "INTERNAL_ERROR", "注册状态未保存");
     return response;
   }

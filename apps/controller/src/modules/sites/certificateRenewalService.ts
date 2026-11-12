@@ -177,7 +177,7 @@ export class CertificateRenewalService {
           }));
         });
       }
-    });
+    }, { sections: ["nodes", "tasks"] });
     if (!batchId) throw new ServiceError(500, "INTERNAL_ERROR", "续期批次未保存");
     void this.runLocalQueued();
     return this.get(batchId, access);
@@ -185,7 +185,7 @@ export class CertificateRenewalService {
 
   async get(batchId: string, access: RenewalAccess) {
     await this.ensureRecovered();
-    const state = await this.repository.read();
+    const state = await this.repository.read({ sections: ["tasks"] });
     const tasks = state.tasks.filter((task) => taskBatchId(task) === batchId);
     if (!tasks.length) throw new ServiceError(404, "NOT_FOUND", "证书续期批次不存在");
     if (access.nodeScope !== "all" && tasks.some((task) => task.targetNodeId !== LOCAL_RENEWAL_NODE_ID && !access.nodeScope.includes(task.targetNodeId))) {
@@ -207,7 +207,7 @@ export class CertificateRenewalService {
         task.status = "failed"; task.updatedAt = now; task.errorCode = "RESULT_UNKNOWN"; task.result = { message: "Controller restarted while local certificate renewal was running; the task was not replayed", truncated: false };
         state.audits.push(audit({ requester: "controller", nodeId: task.targetNodeId, taskId: task.taskId, event: "certificate-renewal.interrupted", taskType: task.type, parameters: null, fromStatus: "running", toStatus: "failed", resultSummary: "result unknown; not replayed", traceId: randomUUID() }));
       }
-    });
+    }, { sections: ["tasks"], nodeId: LOCAL_RENEWAL_NODE_ID, activeTasks: true });
     await this.runLocalQueued();
   }
 
@@ -222,9 +222,9 @@ export class CertificateRenewalService {
           if (!task) return;
           if (Date.parse(task.expiresAt) <= Date.now()) { task.status = "expired"; task.updatedAt = new Date().toISOString(); task.errorCode = "TASK_EXPIRED"; return; }
           task.status = "running"; task.attempt = 1; task.updatedAt = new Date().toISOString(); taskId = task.taskId;
-        });
+        }, { sections: ["tasks"], nodeId: LOCAL_RENEWAL_NODE_ID, taskStatus: "queued" });
         if (!taskId) break;
-        const state = await this.repository.read();
+        const state = await this.repository.read({ sections: ["tasks"], taskId });
         const task = state.tasks.find((item) => item.taskId === taskId)!;
         let result: { status: "succeeded" | "failed"; message: string; errorCode: string | null };
         try {
@@ -243,7 +243,7 @@ export class CertificateRenewalService {
           current.status = result.status; current.updatedAt = new Date().toISOString(); current.errorCode = result.errorCode;
           current.result = { message: result.message, truncated: false };
           next.audits.push(audit({ requester: "controller-local", nodeId: current.targetNodeId, taskId: current.taskId, event: "certificate-renewal.status", taskType: current.type, parameters: null, fromStatus: "running", toStatus: result.status, resultSummary: result.message, traceId: current.traceId }));
-        });
+        }, { sections: ["tasks"], taskId });
       }
     } finally { this.processing = false; }
   }

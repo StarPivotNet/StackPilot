@@ -235,7 +235,7 @@ test("remote site results are bound to the requested operation and site", async 
     { operationId: "33333333-3333-4333-8333-333333333333", siteId, logs: [] },
     { operationId, siteId: `site-${"b".repeat(32)}`, logs: [] },
   ]) {
-    const executor = new RemoteSiteExecutor({ list: async () => [{ taskId, status: "succeeded", parameters: { operationId }, result: { data } }] }, {});
+    const executor = new RemoteSiteExecutor({ get: async () => ({ taskId, status: "succeeded", parameters: { operationId }, result: { data } }) }, {});
     const result = await executor.reconcile(operation);
     assert.equal(result.status, "failed");
     assert.equal(result.errorCode, "INVALID_REMOTE_TASK_RESULT");

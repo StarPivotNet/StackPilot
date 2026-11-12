@@ -34,6 +34,47 @@ export type AgentControlState = {
   audits: AuditEvent[];
 };
 
+/** A projection is a unit of work: omitted sections are neither loaded nor replaced. */
+export type AgentControlQuery = {
+  sections?: readonly (keyof AgentControlState)[];
+  nodeId?: string;
+  nodeIds?: readonly string[];
+  credentialId?: string;
+  taskId?: string;
+  activeTasks?: boolean;
+  taskStatus?: RemoteTaskRecord["status"];
+  taskLimit?: number;
+};
+
+export function projectAgentControlState(state: AgentControlState, query: AgentControlQuery = {}): AgentControlState {
+  const result = emptyState();
+  const allowed = (nodeId: string) => (!query.nodeId || query.nodeId === nodeId) && (!query.nodeIds || query.nodeIds.includes(nodeId));
+  for (const section of query.sections ?? Object.keys(result) as Array<keyof AgentControlState>) {
+    Object.assign(result, { [section]: structuredClone(state[section]) });
+  }
+  result.nodes = result.nodes.filter((node) => allowed(node.nodeId));
+  result.credentials = result.credentials.filter((credential) => allowed(credential.nodeId) && (!query.credentialId || credential.credentialId === query.credentialId));
+  result.nonces = result.nonces.filter((nonce) => !query.credentialId || nonce.credentialId === query.credentialId);
+  result.tasks = result.tasks.filter((task) => allowed(task.targetNodeId) && (!query.taskId || task.taskId === query.taskId)
+    && (!query.activeTasks || ["queued", "dispatched", "running"].includes(task.status)) && (!query.taskStatus || task.status === query.taskStatus));
+  if (query.taskLimit !== undefined) result.tasks = result.tasks.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.taskId.localeCompare(left.taskId)).slice(0, query.taskLimit);
+  result.audits = result.audits.filter((event) => !query.nodeId && !query.nodeIds || event.nodeId !== null && allowed(event.nodeId)).slice(-10_000);
+  return result;
+}
+
+export function agentControlKey(section: keyof AgentControlState, row: AgentControlState[keyof AgentControlState][number]): string {
+  if (section === "nonces") { const nonce = row as AgentControlState["nonces"][number]; return JSON.stringify([nonce.credentialId, nonce.nonce]); }
+  const key = { enrollments: "enrollmentId", credentials: "credentialId", nodes: "nodeId", tasks: "taskId", audits: "eventId", nonces: "" }[section];
+  return (row as unknown as Record<string, string>)[key]!;
+}
+
+function mergeProjection(state: AgentControlState, before: AgentControlState, after: AgentControlState) {
+  for (const section of Object.keys(state) as Array<keyof AgentControlState>) {
+    const replaced = new Set(before[section].map((row) => agentControlKey(section, row)));
+    Object.assign(state, { [section]: [...state[section].filter((row) => !replaced.has(agentControlKey(section, row))), ...after[section]] });
+  }
+}
+
 const AgentControlStateSchema: z.ZodType<AgentControlState> = z.object({
   enrollments: z.array(z.object({ enrollmentId: z.string().uuid(), tokenDigest: z.string().regex(/^[a-f0-9]{64}$/), nodeName: z.string(), expiresAt: z.string().datetime(), usedAt: z.string().datetime().nullable(), revokedAt: z.string().datetime().nullable() })),
   credentials: z.array(z.object({ credentialId: z.string().uuid(), nodeId: z.string().uuid(), publicKey: z.string(), createdAt: z.string().datetime(), revokedAt: z.string().datetime().nullable(), replacedBy: z.string().uuid().nullable(), rotationId: z.string().uuid().nullable() })),
@@ -46,11 +87,11 @@ const AgentControlStateSchema: z.ZodType<AgentControlState> = z.object({
 const emptyState = (): AgentControlState => ({ enrollments: [], credentials: [], nodes: [], nonces: [], tasks: [], audits: [] });
 const sensitiveAuditKey = /authorization|cookie|token|secret|password|private|key|environment|stdout|stderr/i;
 function redactAuditValue(value: unknown): unknown { if (Array.isArray(value)) return value.map(redactAuditValue); if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, sensitiveAuditKey.test(key) ? "[REDACTED]" : redactAuditValue(nested)])); return value; }
-function sanitizeState(state: AgentControlState) { state.audits = state.audits.map((event) => ({ ...event, parameters: event.parameters ? redactAuditValue(event.parameters) as Record<string, unknown> : null, resultSummary: event.resultSummary?.slice(0, 1024) ?? null })); }
+export function sanitizeAgentControlState(state: AgentControlState) { state.audits = state.audits.map((event) => ({ ...event, parameters: event.parameters ? redactAuditValue(event.parameters) as Record<string, unknown> : null, resultSummary: event.resultSummary?.slice(0, 1024) ?? null })); }
 
 export interface AgentControlRepository {
-  read(): Promise<AgentControlState>;
-  update(mutate: (state: AgentControlState) => void): Promise<AgentControlState>;
+  read(query?: AgentControlQuery): Promise<AgentControlState>;
+  update(mutate: (state: AgentControlState) => void, query?: AgentControlQuery): Promise<AgentControlState>;
   consumeNonce(request: AgentNonceRequest): Promise<AgentNonceConsumption>;
   updateNodeWithAudit(nodeId: string, mutate: (node: AgentNodeState) => AuditEvent): Promise<AgentNodeState | null>;
 }
@@ -68,8 +109,11 @@ function consumeNonce(state: AgentControlState, request: AgentNonceRequest): Age
 
 export class MemoryAgentControlRepository implements AgentControlRepository {
   private state = emptyState();
-  async read() { return structuredClone(this.state); }
-  async update(mutate: (state: AgentControlState) => void) { const next = structuredClone(this.state); mutate(next); sanitizeState(next); this.state = next; return structuredClone(next); }
+  async read(query?: AgentControlQuery) { return projectAgentControlState(this.state, query); }
+  async update(mutate: (state: AgentControlState) => void, query?: AgentControlQuery) {
+    const before = projectAgentControlState(this.state, query), next = structuredClone(before);
+    mutate(next); sanitizeAgentControlState(next); mergeProjection(this.state, before, next); this.state.audits = this.state.audits.slice(-10_000); return structuredClone(next);
+  }
   async consumeNonce(request: AgentNonceRequest) {
     let result: AgentNonceConsumption = "unauthorized";
     await this.update((state) => { result = consumeNonce(state, request); });
@@ -91,16 +135,18 @@ export class FileAgentControlRepository implements AgentControlRepository {
   private queue = Promise.resolve();
   constructor(private readonly filePath: string) {}
 
-  async read(): Promise<AgentControlState> {
-    try { return AgentControlStateSchema.parse(JSON.parse(await readFile(this.filePath, "utf8"))); }
+  async read(query?: AgentControlQuery): Promise<AgentControlState> {
+    try { return projectAgentControlState(AgentControlStateSchema.parse(JSON.parse(await readFile(this.filePath, "utf8"))), query); }
     catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return emptyState(); throw error; }
   }
 
-  async update(mutate: (state: AgentControlState) => void): Promise<AgentControlState> {
+  async update(mutate: (state: AgentControlState) => void, query?: AgentControlQuery): Promise<AgentControlState> {
     const operation = this.queue.catch(() => undefined).then(async () => {
       const state = await this.read();
-      mutate(state);
-      sanitizeState(state);
+      const before = projectAgentControlState(state, query), next = structuredClone(before);
+      mutate(next);
+      sanitizeAgentControlState(next);
+      mergeProjection(state, before, next);
       state.nonces = state.nonces.filter((item) => Date.parse(item.expiresAt) > Date.now());
       state.audits = state.audits.slice(-10_000);
       await mkdir(dirname(this.filePath), { recursive: true, mode: 0o700 });
@@ -109,7 +155,7 @@ export class FileAgentControlRepository implements AgentControlRepository {
       await writeFile(temporary, JSON.stringify(state, null, 2), { encoding: "utf8", mode: 0o600 });
       await rename(temporary, this.filePath);
       await chmod(this.filePath, 0o600);
-      return structuredClone(state);
+      return structuredClone(next);
     });
     this.queue = operation.then(() => undefined, () => undefined);
     return operation;

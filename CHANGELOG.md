@@ -2,6 +2,19 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.40 - 2026-11-13
+
+### Fixed
+
+- Redeliver dispatched Agent tasks with the same attempt after lost responses, enforce the four-slot execution limit, and serialize site operations.
+- Retry persisted result delivery independently, retain newer terminal receipts when an older acknowledgement arrives, and accept delayed signed results within task ownership and clock constraints.
+- Enforce dedicated site workflows and terminal permissions for generic user task creation; filter terminal history by authorized node, requester and terminal key before pagination.
+- Scope Agent control reads by section, node and task; update changed SQLite rows without rewriting unrelated encrypted history and commit state changes with both audit records atomically.
+
+### Changed
+
+- Synchronize workspace, runtime and documentation versions to `0.3.0-preview.40`. Database schema 10 and Agent protocol compatibility are unchanged.
+
 ## 0.3.0-preview.39 - 2026-11-12
 
 ### Changed

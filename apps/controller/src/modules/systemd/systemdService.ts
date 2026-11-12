@@ -31,7 +31,7 @@ export class SystemdService {
       } catch (error) { return helperFailure(error); }
     }
 
-    const state = await this.repository.read(); const now = Date.now(); const warnings: string[] = []; const timestamps: string[] = [];
+    const state = await this.repository.read({ sections: ["nodes"] }); const now = Date.now(); const warnings: string[] = []; const timestamps: string[] = [];
     const nodes = state.nodes.filter((node) => !node.revokedAt && (nodeScope === "all" || nodeScope.includes(node.nodeId)));
     const services = nodes.flatMap((node) => {
       const snapshot = node.systemdSnapshot;

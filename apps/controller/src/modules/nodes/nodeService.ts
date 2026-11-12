@@ -21,12 +21,11 @@ export class NodeService {
     if (!isAgentProtocolCompatible(input.protocolVersion)) throw new ServiceError(409, "BAD_REQUEST", "Agent 协议版本不兼容");
     const requestTime = Date.parse(input.timestamp);
     if (!Number.isFinite(requestTime) || Math.abs(Date.now() - requestTime) > AGENT_REQUEST_TIME_WINDOW_MS) throw new ServiceError(401, "UNAUTHORIZED", "Agent 请求时间无效");
-    const state = await this.repository.read();
+    const state = await this.repository.read({ sections: ["nodes", "credentials"], nodeId: input.nodeId, credentialId: input.credentialId });
     const node = state.nodes.find((item) => item.nodeId === input.nodeId);
     const credential = state.credentials.find((item) => item.credentialId === input.credentialId && item.nodeId === input.nodeId);
     const rotationRecovery = input.path === "/api/agent/credentials/rotate" && credential?.revokedAt && credential.replacedBy && credential.rotationId;
     if (!node || node.revokedAt || !credential || (credential.revokedAt && !rotationRecovery)) throw new ServiceError(401, "UNAUTHORIZED", "Agent 身份无效或已撤销");
-    if (state.nonces.some((item) => item.credentialId === input.credentialId && item.nonce === input.nonce)) throw new ServiceError(409, "BAD_REQUEST", "Agent 请求已重放");
     const payload = agentSignaturePayload(input);
     let valid = false;
     try { valid = verify(null, Buffer.from(payload), credential.publicKey, Buffer.from(input.signature, "base64url")); } catch { valid = false; }
@@ -73,9 +72,8 @@ export class NodeService {
 
   async list() {
     const now = Date.now();
-    const state = await this.repository.update((next) => {
-      for (const node of next.nodes) if (!node.revokedAt && node.lastSeenAt && now - Date.parse(node.lastSeenAt) > this.offlineAfterMs) node.status = "offline";
-    });
+    const state = await this.repository.read({ sections: ["nodes"] });
+    for (const node of state.nodes) if (!node.revokedAt && node.lastSeenAt && now - Date.parse(node.lastSeenAt) > this.offlineAfterMs) node.status = "offline";
     return state.nodes;
   }
 
@@ -91,7 +89,7 @@ export class NodeService {
         state.audits.push(audit({ requester, nodeId, taskId: task.taskId, event: "task.cancelled-by-node-revocation", taskType: task.type, parameters: null, fromStatus, toStatus: "cancelled", resultSummary: null, traceId }));
       }
       state.audits.push(audit({ requester, nodeId, taskId: null, event: "node.revoked", taskType: null, parameters: null, fromStatus: previous, toStatus: "revoked", resultSummary: null, traceId }));
-    });
+    }, { sections: ["nodes", "credentials", "tasks"], nodeId, activeTasks: true });
   }
 
   async updateCapabilities(nodeId: string, allowedCapabilities: AgentHeartbeat["capabilities"], requester: string, traceId: string) {
@@ -130,7 +128,7 @@ export class NodeService {
       current.revokedAt = now; current.replacedBy = replacementId; current.rotationId = rotationId;
       state.credentials.push({ credentialId: replacementId, nodeId, publicKey, createdAt: now, revokedAt: null, replacedBy: null, rotationId: null });
       state.audits.push(audit({ requester: `agent:${nodeId}`, nodeId, taskId: null, event: "credential.rotated", taskType: null, parameters: { oldCredentialId: credentialId, newCredentialId: replacementId }, fromStatus: null, toStatus: null, resultSummary: null, traceId }));
-    });
+    }, { sections: ["nodes", "credentials"], nodeId });
     return response ?? { credentialId: replacementId, rotatedAt: now };
   }
 }

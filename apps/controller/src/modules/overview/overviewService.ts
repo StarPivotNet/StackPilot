@@ -41,7 +41,10 @@ export class OverviewService {
   ) {}
 
   async getOverview(access: OverviewAccess = fullAccess, options: { bypassCache?: boolean } = {}): Promise<OverviewSummaryPayload> {
-    const [local, state] = await Promise.all([this.localSample(Boolean(options.bypassCache)), this.agents.read()]);
+    const [local, state] = await Promise.all([this.localSample(Boolean(options.bypassCache)), this.agents.read({
+      sections: ["nodes", ...(access.canReadTasks ? ["tasks" as const] : []), ...(access.canReadAudit ? ["audits" as const] : [])],
+      ...(access.nodeScope === "all" ? {} : { nodeIds: access.nodeScope }),
+    })]);
     const allowed = (nodeId: string) => access.nodeScope === "all" || access.nodeScope.includes(nodeId);
     const remoteNodes = state.nodes.filter((node) => !node.revokedAt && allowed(node.nodeId));
     const mirrorNodes = controllerMirrorAgents(local.snapshot, state.nodes.filter((node) => !node.revokedAt)).filter((node) => allowed(node.nodeId));

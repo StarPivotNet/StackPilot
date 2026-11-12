@@ -16,7 +16,7 @@ export class FirewallDenyService {
   ) {}
 
   async list(nodeScope: NodeScope): Promise<FirewallDenyRecordsPayload> {
-    const state = await this.repository.read(); const now = this.now();
+    const state = await this.repository.read({ sections: ["nodes"] }); const now = this.now();
     const nodes = state.nodes.filter((node) => !node.revokedAt && (nodeScope === "all" || nodeScope.includes(node.nodeId)));
     const snapshots = nodes.flatMap((node) => node.firewallDenySnapshot ? [{ node, snapshot: node.firewallDenySnapshot }] : []);
     const latestAcceptedAt = now + MAX_CLOCK_SKEW_MS;

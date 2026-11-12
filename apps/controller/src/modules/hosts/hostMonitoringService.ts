@@ -134,7 +134,7 @@ export class HostMonitoringService {
     const local = localRecord(snapshot, this.production);
     const hosts = [local];
     if (includeAgents) {
-      const state = await this.repository.read();
+      const state = await this.repository.read({ sections: ["nodes"] });
       const allowed = nodeScope === "all" ? state.nodes : state.nodes.filter((node) => nodeScope.includes(node.nodeId));
       const active = allowed.filter((node) => !node.revokedAt && node.status !== "revoked");
       const activeIds = new Set(active.map((node) => node.nodeId));

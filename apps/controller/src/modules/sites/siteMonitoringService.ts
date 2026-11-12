@@ -124,7 +124,7 @@ export class SiteMonitoringService {
   async getSites(access: SiteAccess = { nodeScope: [] }) {
     const local = await this.getLocalSites();
     if (!this.repository) return local;
-    const state = await this.repository.read();
+    const state = await this.repository.read({ sections: ["nodes"] });
     const permitted = state.nodes.filter((node) =>
       !node.revokedAt && node.siteSnapshot && (access.nodeScope === "all" || access.nodeScope.includes(node.nodeId)),
     );

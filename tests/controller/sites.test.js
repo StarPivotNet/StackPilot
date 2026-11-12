@@ -241,6 +241,8 @@ test("remote certificate renewals dispatch only one Certbot task per node at a t
   const tasks = new RemoteTaskService(repository);
   const first = await tasks.poll(nodeId, crypto.randomUUID()); assert.equal(first.length, 1);
   assert.equal(first[0].type, "sites.certificates.renew");
+  assert.deepEqual(await tasks.poll(nodeId, crypto.randomUUID()), first);
+  await tasks.update(nodeId, { taskId: first[0].taskId, attempt: 1, status: "running", timestamp: new Date().toISOString() }, crypto.randomUUID());
   assert.equal((await tasks.poll(nodeId, crypto.randomUUID())).length, 0);
   await tasks.update(nodeId, { taskId: first[0].taskId, attempt: 1, status: "succeeded", timestamp: new Date().toISOString(), result: { message: "renewed", truncated: false } }, crypto.randomUUID());
   assert.equal((await tasks.poll(nodeId, crypto.randomUUID())).length, 1);

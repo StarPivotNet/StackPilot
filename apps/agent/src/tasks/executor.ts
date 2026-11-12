@@ -36,7 +36,13 @@ export class TaskExecutor {
   get activeCount() { return this.running.size; }
   get activeSiteOperationCount() { return [...this.running.values()].filter((task) => task.taskType.startsWith("sites.")).length; }
   pendingUpdates() { return [...this.receipts.values()].filter((receipt) => !receipt.reported).map((receipt) => receipt.update); }
-  async markReported(taskId: string) { const receipt = this.receipts.get(taskId); if (receipt) { receipt.reported = true; await this.persist(); } }
+  async markReported(taskId: string, expected?: RemoteTaskStatusUpdate) {
+    const receipt = this.receipts.get(taskId);
+    // An acknowledgement for a running receipt must not acknowledge a newer terminal result.
+    if (receipt && (!expected || receipt.update.attempt === expected.attempt && receipt.update.status === expected.status && receipt.update.timestamp === expected.timestamp)) {
+      receipt.reported = true; await this.persist();
+    }
+  }
   tryExecute(raw: unknown, maxConcurrent: number, onRunning?: (update: RemoteTaskStatusUpdate) => Promise<void>) {
     if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1) throw new Error("INVALID_CONCURRENCY_LIMIT");
     const task = RemoteTaskEnvelopeSchema.parse(raw);

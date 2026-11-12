@@ -2,6 +2,17 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.42 - 2026-11-13
+
+### Added
+
+- Add node-bound independent SSH helper enrollment, Ed25519 signed HTTPS requests, persistent anti-replay checks and explicit credential revocation in schema 12.
+- Keep readiness observations separate from independent takeover evidence; replacing a helper invalidates old verification, credentials and active-access authorization.
+
+### Fixed
+
+- Restore optional dependency entries missing from the npm lockfile so Node 22/npm 10 CI can pass clean dependency installation. Synchronize workspace versions and current schema documentation.
+
 ## 0.3.0-preview.41 - 2026-11-13
 
 ### Added

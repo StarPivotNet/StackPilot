@@ -1,4 +1,4 @@
-import { SshIssueRequestSchema, SshPolicyInputSchema, SshWorkspaceSchema } from "@stackpilot/contracts";
+import { SshHelperEnrollmentInputSchema, SshIssueRequestSchema, SshPolicyInputSchema, SshWorkspaceSchema } from "@stackpilot/contracts";
 import type { RequestContext } from "./types.js";
 import { sendJson } from "./response/json.js";
 import { parseSchema } from "./validation.js";
@@ -17,6 +17,18 @@ export function routeSshRequest(context: RequestContext) {
     return;
   }
   const reauth = () => identity.consumeReauth(principal, typeof request.headers["x-reauth-proof"] === "string" ? request.headers["x-reauth-proof"] : undefined);
+  if (method === "POST" && parts.length === 3 && parts[2] === "helper-enrollments") {
+    const input = parseSchema(SshHelperEnrollmentInputSchema, context.body, "SSH helper 注册授权");
+    identity.require(principal, "ssh:manage", input.nodeId); reauth();
+    if (!services.sshHelpers) throw new ServiceError(503, "NOT_READY", "SSH helper 身份服务不可用");
+    sendJson(response, 201, services.sshHelpers.createEnrollment(input.nodeId, principal.userId)); return;
+  }
+  if (method === "POST" && parts.length === 5 && parts[2] === "helpers" && parts[4] === "revoke") {
+    const input = parseSchema(SshHelperEnrollmentInputSchema, { nodeId: parts[3] }, "SSH helper 节点");
+    identity.require(principal, "ssh:manage", input.nodeId); reauth();
+    if (!services.sshHelpers) throw new ServiceError(503, "NOT_READY", "SSH helper 身份服务不可用");
+    services.sshHelpers.revoke(input.nodeId, principal.userId); sendJson(response, 202, { message: "SSH helper 已撤销，现有连接终止等待主机确认", tone: "warning" }); return;
+  }
   if (method === "POST" && parts.length === 3 && parts[2] === "policies") {
     const input = parseSchema(SshPolicyInputSchema, context.body, "SSH 授权");
     identity.require(principal, "ssh:manage", input.nodeId); reauth();

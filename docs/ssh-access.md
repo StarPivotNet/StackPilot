@@ -24,7 +24,7 @@ Credential metadata records `consumedAt` and `revokedAt`. Session metadata disti
 
 ## Required before enabling the capability
 
-1. Implement root `ssh-helper` enrollment using an independent node key, verified HTTPS and replay-resistant authentication, separate from user and Agent credentials.
+1. Controller-side helper enrollment and signed HTTPS authentication are implemented. Complete the root-side client and installer using an independent node key, separate from user and Agent credentials.
 2. Implement the native PAM authentication and session hooks, securely binding a credential to an actual sshd connection across privilege separation and process forks.
 3. Implement independent per-connection systemd scopes, local monotonic expiry, descendant-process termination, restart reconciliation and 10-second online authorization checks. Offline sessions retain their original deadline; new authentication fails closed.
 4. Implement system-account ownership checks, root-owned service-operation wrappers, sudo policy validation and acknowledged policy revisions. Full root users are trusted and can bypass local controls.
@@ -33,4 +33,14 @@ Credential metadata records `consumedAt` and `revokedAt`. Session metadata disti
 7. Integrate the existing SSH Web views with these actual services, replacing certificate drafts with OTP issuance and out-of-band recovery. Verify desktop/mobile rendering, access restrictions and a complete polling cycle.
 8. Run Debian 12 and Ubuntu 24.04 systemd VM acceptance tests, including PAM, shell/SFTP/SCP, multiplexing, policy revocation, partitions, helper crashes, rollback and out-of-band recovery.
 
-No public management endpoint currently writes host verification evidence or an applied revision. The internal `SshService.authenticate` entry point is reserved for a future authenticated host adapter and is not routed as a public API. Its direct unit tests use explicitly synthetic trusted-adapter fixtures; they are not evidence of Linux acceptance.
+No public management endpoint writes host verification evidence or an applied revision. `SshService.authenticate` is reachable only through the signed HTTPS helper interface; browsers and Agent credentials cannot invoke it. It still refuses login unless an independently verified host and applied policy exist. Its direct unit tests use explicitly synthetic trusted-adapter fixtures; they are not evidence of Linux acceptance.
+
+## Helper identity interface
+
+`POST /api/ssh/helper-enrollments` accepts `{nodeId}` and requires a scoped `ssh:manage` permission, a user session, CSRF and one-use reauthentication. Its response includes a five-minute, single-use registration token, returned once. Creating a new enrollment cancels older unused enrollments on that node. `POST /api/ssh/helpers/:nodeId/revoke` uses the same authorization and revokes both active helper identity and unused enrollments.
+
+The HTTPS machine listener accepts `POST /api/ssh-helper/enroll` with `{enrollmentToken,publicKey}`. Only Ed25519 public keys are allowed. Reenrollment revokes the previous key and clears SSH verification. The helper must store its private key locally with root-only access; the Controller stores its public key only.
+
+All subsequent requests require `X-StackPilot-Ssh-Protocol: 1`, `X-StackPilot-Ssh-Node`, `X-StackPilot-Ssh-Credential`, `X-StackPilot-Ssh-Time`, `X-StackPilot-Ssh-Nonce`, and `X-StackPilot-Ssh-Signature`. Sign the shared contract's `sshHelperSignaturePayload` with Ed25519 and encode the signature as unpadded base64url. The five-minute timestamp window and persisted nonce ledger prevent replay; method, full path including query and SHA-256 of exact request bytes are covered. Agent signatures have a different purpose and cannot authenticate a helper.
+
+`POST /api/ssh-helper/report` accepts bounded collection metadata (`collectedAt`, `supported`, `reason`, `platform`, `version`). These observations cannot mark a host managed or refresh independent verification. `POST /api/ssh-helper/authenticate` accepts `{account,password,connectionId}` and binds the target node to the authenticated helper identity. Plain HTTP, browser sessions and personal API tokens cannot access either machine endpoint.

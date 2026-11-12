@@ -66,6 +66,8 @@ import { FirewallOpenPortService } from "./modules/firewall/firewallOpenPortServ
 import { AuditExportService } from "./modules/audit/auditExportService.js";
 import { FileScheduleExecutionRepository } from "./modules/schedules/scheduleExecutionRepository.js";
 import { SshService } from "./modules/ssh/sshService.js";
+import { SshHelperService } from "./modules/ssh/sshHelperService.js";
+import { routeSshHelperRequest } from "./http/sshHelperRouter.js";
 
 export type AppOptions = {
   env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
@@ -117,6 +119,7 @@ export function createControllerServices(
   );
   return {
     ...(database && audit ? { ssh: new SshService(database, audit) } : {}),
+    ...(database && audit ? { sshHelpers: new SshHelperService(database, audit) } : {}),
     overview,
     hosts: new HostMonitoringService(platform, repository, 45_000, config.production),
     databaseSlowQueries: new DatabaseSlowQueryService(new PostgresSlowQueryCollector()),
@@ -189,15 +192,17 @@ export function createStackPilotApp(options: AppOptions = {}): RequestListener {
         return;
       }
       const isAgentPath = url.pathname.startsWith("/api/agent/");
+      const isSshHelperPath = url.pathname.startsWith("/api/ssh-helper/");
+      const isMachinePath = isAgentPath || isSshHelperPath;
       const isHealthPath = url.pathname === "/healthz" || url.pathname === "/readyz";
       const isLoginPath = url.pathname === "/api/auth/login";
       const isSessionStatusPath = url.pathname === "/api/auth/session";
       const isFileChunkPath = /^\/api\/resumable-file-uploads\/[0-9a-f-]+\/chunks$/i.test(url.pathname) && method === "POST";
-      if (surface === "agent" && !isAgentPath && !isHealthPath) throw new ServiceError(404, "NOT_FOUND", "接口不存在");
-      if (isAgentPath && (!("encrypted" in request.socket) || request.socket.encrypted !== true)) throw new ServiceError(426, "BAD_REQUEST", "Agent API 要求 TLS");
-      if (surface === "management" && isAgentPath) throw new ServiceError(426, "BAD_REQUEST", "Agent API 仅在 TLS 监听器可用");
-      principal = !isAgentPath && !isHealthPath && !isLoginPath && !isSessionStatusPath ? authenticateUser(request, identity) : isSessionStatusPath && identity ? (()=>{try{return authenticateUser(request,identity);}catch{return undefined;}})() : undefined;
-      if (!isAgentPath && isWriteMethod(method) && !isLoginPath && principal && identity) requireCsrf(request, principal, identity, config.allowedOrigins);
+      if (surface === "agent" && !isMachinePath && !isHealthPath) throw new ServiceError(404, "NOT_FOUND", "接口不存在");
+      if (isMachinePath && (!("encrypted" in request.socket) || request.socket.encrypted !== true)) throw new ServiceError(426, "BAD_REQUEST", "机器身份 API 要求 TLS");
+      if (surface === "management" && isMachinePath) throw new ServiceError(426, "BAD_REQUEST", "机器身份 API 仅在 TLS 监听器可用");
+      principal = !isMachinePath && !isHealthPath && !isLoginPath && !isSessionStatusPath ? authenticateUser(request, identity) : isSessionStatusPath && identity ? (()=>{try{return authenticateUser(request,identity);}catch{return undefined;}})() : undefined;
+      if (!isMachinePath && isWriteMethod(method) && !isLoginPath && principal && identity) requireCsrf(request, principal, identity, config.allowedOrigins);
       const isFileUpload = url.pathname === "/api/file-uploads" && method === "POST";
       if (isFileUpload) identity?.require(principal, "files:write");
       const isLargeAgentPayload = url.pathname === "/api/agent/heartbeat" || url.pathname.startsWith("/api/agent/databases/");
@@ -209,7 +214,8 @@ export function createStackPilotApp(options: AppOptions = {}): RequestListener {
         ? await authenticateAgentRequest(request, `${url.pathname}${url.search}`, parsedBody.raw, services.nodes)
         : undefined;
       const context = { request, response, requestId, url, parts, config, services, platform, logger, body: parsedBody.value, rawBody: parsedBody.raw, identity, ...(principal ? { principal } : {}), ...(authenticatedAgent ? { agentIdentity: { nodeId: authenticatedAgent.nodeId, credentialId: authenticatedAgent.credential.credentialId, protocolVersion: authenticatedAgent.protocolVersion } } : {}) };
-      if (isAgentPath) await routeAgentRequest(context);
+      if (isSshHelperPath) routeSshHelperRequest(context);
+      else if (isAgentPath) await routeAgentRequest(context);
       else await routeRequest(context);
     } catch (error) {
       outcome="failure";

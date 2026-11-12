@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/cert-helper",
   "private": true,
-  "version": "0.3.0-preview.41",
+  "version": "0.3.0-preview.42",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {

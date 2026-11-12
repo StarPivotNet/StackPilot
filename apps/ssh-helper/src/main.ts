@@ -13,6 +13,7 @@ import { SessionRuntime } from "./runtime.js";
 import { startPamSocket } from "./server.js";
 import { AccountManager } from "./accounts.js";
 import { ServiceInspector } from "./services.js";
+import { SshPreflightInspector } from "./preflight.js";
 
 export async function readEnrollment(path: string) {
   const fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -26,6 +27,7 @@ async function main() {
   const os = await readFile("/etc/os-release", "utf8");
   const id = /^ID=["']?([^\n"']+)/m.exec(os)?.[1]; const version = /^VERSION_ID=["']?([^\n"']+)/m.exec(os)?.[1];
   if (!((id === "debian" && version === "12") || (id === "ubuntu" && version === "24.04"))) throw new Error("SSH helper requires Debian 12 or Ubuntu 24.04");
+  if (process.argv[2] === "preflight") { process.stdout.write(`${JSON.stringify(await new SshPreflightInspector().inspect())}\n`); return; }
   const store = new RootStore(process.env.STACKPILOT_SSH_STATE_DIR ?? "/var/lib/stackpilot-ssh-helper"); await store.prepare();
   const ca = process.env.STACKPILOT_SSH_CA_FILE ? await readFile(process.env.STACKPILOT_SSH_CA_FILE, "utf8") : undefined;
   const controller = new ControllerClient(process.env.STACKPILOT_SSH_CONTROLLER_URL ?? "", ca);

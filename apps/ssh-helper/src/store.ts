@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createPrivateKey, generateKeyPairSync, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { SshSessionSchema } from "@stackpilot/contracts";
+import { rootDirectory } from "./files.js";
 
 export const LocalSessionSchema = z.object({ session: SshSessionSchema, bootId: z.string().uuid(), monitorPid: z.number().int().min(2), monitorStart: z.string().regex(/^\d+$/), scope: z.string().regex(/^stackpilot-ssh-[0-9a-f-]{36}\.scope$/), cgroup: z.string().regex(/^\/[a-zA-Z0-9_./@:-]+$/).refine(value => !value.split("/").includes("..")), deadlineBootMs: z.number().positive(), terminationRequested: z.boolean(), terminated: z.boolean(), acknowledged: z.boolean() }).strict().refine(value => value.scope === `stackpilot-ssh-${value.session.id}.scope` && value.cgroup.endsWith(`/${value.scope}`), "SSH scope must match its session");
 export type LocalSession = z.infer<typeof LocalSessionSchema>;
@@ -14,6 +15,7 @@ export class RootStore {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const stat = await lstat(this.directory);
     if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== 0 || (process.platform === "linux" && (stat.mode & 0o077))) throw new Error("SSH state directory must be root-owned mode 0700");
+    if (process.platform === "linux") await rootDirectory(this.directory);
   }
   async read(name: string): Promise<string> {
     if (!/^[a-z-]+\.json$|^identity\.pem$/.test(name)) throw new Error("Invalid SSH state name");

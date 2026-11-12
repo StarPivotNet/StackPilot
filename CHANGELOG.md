@@ -2,6 +2,18 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.45 - 2026-11-13
+
+### Added
+
+- Inventory native SSH listeners, stock systemd startup/socket activation, SSH/PAM includes, Match conditions, authentication sources and host fingerprints without switching authentication.
+- Build and verify flat managed SSH/PAM configurations that preserve exact entrances and host keys while disabling inherited authentication, forwarding and session hooks outside the helper.
+- Test real systemd scope expiry/non-delegation and reject additional native or unrecognized SSH entrances in disposable Debian 12/Ubuntu 24.04 VMs.
+
+### Fixed
+
+- Reject root-only helper state placed below an unsafe writable ancestor. Normalize distribution-specific whitespace in effective OpenSSH output.
+
 ## 0.3.0-preview.44 - 2026-11-13
 
 ### Added

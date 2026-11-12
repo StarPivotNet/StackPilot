@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, chmod, writeFile, symlink } from "node:fs/promises";
+import { mkdtemp, readFile, rm, chmod, writeFile, symlink, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -13,6 +13,11 @@ test("root store persists one private key and rejects unsafe file names", { skip
 test("Linux state requires root ownership and mode 0700", { skip: process.platform !== "linux" }, async () => {
   const directory = await mkdtemp(join(tmpdir(), "stackpilot-ssh-permissions-"));
   try { await chmod(directory, 0o755); await assert.rejects(new RootStore(directory).prepare()); } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("Linux state refuses a root-owned leaf inside a writable ancestor", { skip: process.platform !== "linux" || !rootOnly }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), "stackpilot-ssh-parent-")); const state = join(directory, "state");
+  try { await chmod(directory, 0o777); await mkdir(state, { mode: 0o700 }); await assert.rejects(new RootStore(state).prepare()); } finally { await rm(directory, { recursive: true, force: true }); }
 });
 test("Linux root store refuses symlinks and group-readable credential files", { skip: process.platform !== "linux" || !rootOnly }, async () => {
   const directory = await mkdtemp(join(tmpdir(), "stackpilot-ssh-links-"));

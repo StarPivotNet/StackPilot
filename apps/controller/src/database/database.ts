@@ -26,6 +26,7 @@ export function openDatabase(path: string): Database.Database {
       { version: 8, name: "deployment-environment", sql: readFileSync(resolve(migrationDirectory,"008_deployment_environment.sql"), "utf8") },
       { version: 9, name: "audit-pagination", sql: readFileSync(resolve(migrationDirectory,"009_audit_pagination.sql"), "utf8"), replaces: ["audit-exports"] },
       { version: 10, name: "audit-exports", sql: readFileSync(resolve(migrationDirectory,"010_audit_exports.sql"), "utf8") },
+      { version: 11, name: "managed-ssh", sql: readFileSync(resolve(migrationDirectory,"011_ssh.sql"), "utf8") },
     ]);
     const schemaVersion = (database.prepare("SELECT max(version) AS version FROM schema_migrations").get() as { version: number }).version;
     database.prepare(`UPDATE release_metadata

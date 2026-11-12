@@ -2,6 +2,15 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.41 - 2026-11-13
+
+### Added
+
+- Add the managed SSH Controller foundation: explicit permissions, user/node policies, transactional single-use credentials and durable session termination requests.
+- Invalidate SSH credentials and request termination when identity or policy access changes. Keep host execution acknowledgements distinct from requests.
+- Add schema 11 and scope-filtered read-only SSH APIs. Synchronize workspace versions and schema backup/upgrade metadata.
+- Keep takeover and production credential issuance unavailable until the native PAM module, authenticated host executor, independent verifier and Web integration are implemented and accepted. No server SSH configuration is changed.
+
 ## 0.3.0-preview.40 - 2026-11-13
 
 ### Fixed

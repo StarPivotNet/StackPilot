@@ -49,7 +49,7 @@ async function loadMigrations(entries = migrationFiles) {
   })));
 }
 
-test("schema 1 upgrades to schema 10 without losing identity data", async () => {
+test("schema 1 upgrades to schema 11 without losing identity data", async () => {
   const dir = await mkdtemp(join(tmpdir(), "stackpilot-upgrade-"));
   const path = join(dir, "stackpilot.db");
   try {
@@ -62,10 +62,10 @@ test("schema 1 upgrades to schema 10 without losing identity data", async () => 
 
     const upgraded = openDatabase(path);
     assert.equal(upgraded.prepare("SELECT username FROM users").get().username, "upgrade-user");
-    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 10);
+    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 11);
     assert.deepEqual(upgraded.prepare("SELECT application_version, schema_version FROM release_metadata").get(), {
       application_version: applicationVersion,
-      schema_version: 10,
+      schema_version: 11,
     });
     for (const table of ["file_uploads", "terminal_snippet_preferences", "file_trash_entries", "database_instances", "database_operations", "site_plans", "site_operations", "audit_exports"]) {
       assert.ok(upgraded.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table));
@@ -90,7 +90,7 @@ test("schema 5 file-trash data survives database and site migrations", async () 
     db.close();
 
     const upgraded = openDatabase(path);
-    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 10);
+    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 11);
     assert.equal(upgraded.prepare("SELECT username FROM users WHERE id=?").get("22222222-2222-4222-8222-222222222222").username, "schema5-user");
     assert.equal(upgraded.prepare("SELECT original_path FROM file_trash_entries WHERE entry_id=?").get("33333333-3333-4333-8333-333333333333").original_path, "/srv/example.txt");
     assert.ok(upgraded.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='database_instances'").get());
@@ -101,7 +101,7 @@ test("schema 5 file-trash data survives database and site migrations", async () 
   }
 });
 
-test("schema 6 database state upgrades additively to schema 10", async () => {
+test("schema 6 database state upgrades additively to schema 11", async () => {
   const dir = await mkdtemp(join(tmpdir(), "stackpilot-schema6-upgrade-"));
   const path = join(dir, "stackpilot.db");
   try {
@@ -110,7 +110,7 @@ test("schema 6 database state upgrades additively to schema 10", async () => {
     assert.equal(db.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 6);
     db.close();
     const upgraded = openDatabase(path);
-    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 10);
+    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 11);
     assert.ok(upgraded.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='database_operations'").get());
     assert.ok(upgraded.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='site_operations'").get());
     upgraded.close();
@@ -144,10 +144,11 @@ test("legacy site-management schema 6 is normalized without losing site data", a
       { version: 8, name: "deployment-environment" },
       { version: 9, name: "audit-pagination" },
       { version: 10, name: "audit-exports" },
+      { version: 11, name: "managed-ssh" },
     ]);
     assert.deepEqual(upgraded.prepare("SELECT application_version, schema_version FROM release_metadata").get(), {
       application_version: applicationVersion,
-      schema_version: 10,
+      schema_version: 11,
     });
     upgraded.close();
   } finally {
@@ -223,7 +224,7 @@ test("schema 8 audit events gain indexed node ownership without changing event d
     db.close();
 
     const upgraded = openDatabase(path);
-    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 10);
+    assert.equal(upgraded.prepare("SELECT max(version) AS version FROM schema_migrations").get().version, 11);
     assert.deepEqual(upgraded.prepare("SELECT event_id,event_hash,parameters FROM audit_events ORDER BY sequence").all(), before);
     assert.deepEqual(upgraded.prepare("SELECT event_id,node_id FROM audit_events ORDER BY sequence").all(), [
       { event_id: "event-node", node_id: "node-target" },
@@ -239,7 +240,7 @@ test("schema 8 audit events gain indexed node ownership without changing event d
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("legacy schema 9 audit exports gain pagination metadata and advance to schema 10", async () => {
+test("legacy schema 9 audit exports gain pagination metadata and advance to schema 11", async () => {
   const dir = await mkdtemp(join(tmpdir(), "stackpilot-schema9-export-upgrade-"));
   const path = join(dir, "stackpilot.db");
   try {
@@ -268,6 +269,7 @@ test("legacy schema 9 audit exports gain pagination metadata and advance to sche
     assert.deepEqual(upgraded.prepare("SELECT version,name FROM schema_migrations WHERE version >= 9 ORDER BY version").all(), [
       { version: 9, name: "audit-pagination" },
       { version: 10, name: "audit-exports" },
+      { version: 11, name: "managed-ssh" },
     ]);
     assert.ok(upgraded.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_exports'").get());
     assert.ok(upgraded.prepare("SELECT name FROM pragma_table_info('audit_events') WHERE name='node_id'").get());
@@ -281,7 +283,7 @@ test("legacy schema 9 audit exports gain pagination metadata and advance to sche
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("production schema 9 audit pagination upgrades to schema 10 across restarts", async () => {
+test("production schema 9 audit pagination upgrades to schema 11 across restarts", async () => {
   const dir = await mkdtemp(join(tmpdir(), "stackpilot-production-schema9-upgrade-"));
   const path = join(dir, "stackpilot.db");
   try {
@@ -301,6 +303,7 @@ test("production schema 9 audit pagination upgrades to schema 10 across restarts
     assert.deepEqual(upgraded.prepare("SELECT version,name FROM schema_migrations WHERE version>=9 ORDER BY version").all(), [
       { version: 9, name: "audit-pagination" },
       { version: 10, name: "audit-exports" },
+      { version: 11, name: "managed-ssh" },
     ]);
     assert.ok(upgraded.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_exports'").get());
     upgraded.close();
@@ -309,6 +312,7 @@ test("production schema 9 audit pagination upgrades to schema 10 across restarts
     assert.deepEqual(reopened.prepare("SELECT version,name FROM schema_migrations WHERE version>=9 ORDER BY version").all(), [
       { version: 9, name: "audit-pagination" },
       { version: 10, name: "audit-exports" },
+      { version: 11, name: "managed-ssh" },
     ]);
     reopened.close();
   } finally { await rm(dir, { recursive: true, force: true }); }

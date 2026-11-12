@@ -65,6 +65,7 @@ import { FirewallDenyService } from "./modules/firewall/firewallDenyService.js";
 import { FirewallOpenPortService } from "./modules/firewall/firewallOpenPortService.js";
 import { AuditExportService } from "./modules/audit/auditExportService.js";
 import { FileScheduleExecutionRepository } from "./modules/schedules/scheduleExecutionRepository.js";
+import { SshService } from "./modules/ssh/sshService.js";
 
 export type AppOptions = {
   env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
@@ -115,6 +116,7 @@ export function createControllerServices(
     repoRoot,
   );
   return {
+    ...(database && audit ? { ssh: new SshService(database, audit) } : {}),
     overview,
     hosts: new HostMonitoringService(platform, repository, 45_000, config.production),
     databaseSlowQueries: new DatabaseSlowQueryService(new PostgresSlowQueryCollector()),

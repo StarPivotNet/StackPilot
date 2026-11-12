@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const PermissionSchema = z.enum([
+  "ssh:read", "ssh:connect", "ssh:manage", "ssh:sessions:terminate",
   "overview:read", "overview:operate", "schedules:read", "schedules:write", "nodes:read", "nodes:manage",
   "services:read", "services:operate",
   "terminal:read", "terminal:execute",

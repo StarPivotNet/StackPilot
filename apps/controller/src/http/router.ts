@@ -18,6 +18,7 @@ import { sendJson } from "./response/json.js";
 import { parseSchema } from "./validation.js";
 import { routeControlPlaneRequest } from "./controlPlaneRouter.js";
 import { routeIdentityRequest } from "./identityRouter.js";
+import { routeSshRequest } from "./sshRouter.js";
 import { routeTerminalRequest } from "./terminalRouter.js";
 import type { OverviewAccess } from "../modules/overview/overviewService.js";
 import { routeDatabaseBackupRequest } from "./databaseBackupRouter.js";
@@ -43,6 +44,7 @@ function overviewAccess(context:RequestContext):OverviewAccess{return{nodeScope:
 export async function routeRequest(context: RequestContext): Promise<void> {
   const { request, response, parts, services } = context;
   const method = request.method ?? "GET";
+  if (context.parts[0] === "api" && context.parts[1] === "ssh") { routeSshRequest(context); return; }
   if (parts[0] === "api" && parts[1] === "databases" && services.databaseInventory && services.databaseWorkspace && services.databaseOperations) { await routeDatabaseRequest(context); return; }
   if (context.url.pathname === "/api/databases" && method === "GET") {
     context.identity?.require(context.principal, "databases:read");

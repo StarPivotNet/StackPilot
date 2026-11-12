@@ -2,7 +2,7 @@
 
 StackPilot 是开源自托管多服务器总控台。当前仓库采用 npm workspaces，包含前端控制台、Node.js Controller API、非 root Agent、root-only 数据库 helper 和共享运行时契约。
 
-> **项目成熟度：预览版。** 当前版本为 `0.3.0-preview.40`，提供可重复的部署、迁移、回滚和发布验证流程，但尚未达到稳定生产发布条件，也不提供 SLA。正式支持范围和已验证边界见[兼容性矩阵](docs/compatibility.md)。
+> **项目成熟度：预览版。** 当前版本为 `0.3.0-preview.41`，提供可重复的部署、迁移、回滚和发布验证流程，但尚未达到稳定生产发布条件，也不提供 SLA。正式支持范围和已验证边界见[兼容性矩阵](docs/compatibility.md)。
 
 ## 当前前端范围
 
@@ -32,6 +32,8 @@ tests/          Controller、Web、公共包和架构边界测试
 ```
 
 Controller 与 Agent 通信的威胁、信任边界和残余风险记录在 [Controller-Agent 威胁模型](docs/security/controller-agent-threat-model.md)。Agent 是独立 TypeScript 进程，不导入 Controller 内部实现。
+
+SSH 管理当前提供 Controller 授权与凭据基础；原生 PAM、主机执行器、独立验证和页面接入尚未完成，接管保持禁用。见 [SSH 实现状态](docs/ssh-access.md)。
 
 ## 本地运行
 
@@ -207,7 +209,7 @@ npm run build
 npm run test:e2e
 npm audit --audit-level=high
 npm run release:build
-npm run release:verify -- output/release/0.3.0-preview.40/SHA256SUMS
+npm run release:verify -- output/release/0.3.0-preview.41/SHA256SUMS
 npm run release:scan
 ```
 
@@ -239,7 +241,7 @@ npm run test --workspace @stackpilot/agent
 
 ## 生产部署与发布
 
-正式支持的 Controller/Web 运行时为 Debian 12 或 Ubuntu 24.04 x86_64、Node.js 22.x 和 SQLite schema 10。Docker Compose 默认仅公开 HTTPS 443；Controller 8787 位于内部网络，Agent 9443 默认只绑定回环地址。原生 systemd 方案为 Controller、Agent、站点 helper 和 database-helper 建立独立权限边界，并通过 systemd credential 注入主密钥和 TLS 私钥。Agent/helper 的其他发行版能力只有通过固定镜像集成测试后才列入兼容性矩阵。
+正式支持的 Controller/Web 运行时为 Debian 12 或 Ubuntu 24.04 x86_64、Node.js 22.x 和 SQLite schema 11。Docker Compose 默认仅公开 HTTPS 443；Controller 8787 位于内部网络，Agent 9443 默认只绑定回环地址。原生 systemd 方案为 Controller、Agent、站点 helper 和 database-helper 建立独立权限边界，并通过 systemd credential 注入主密钥和 TLS 私钥。Agent/helper 的其他发行版能力只有通过固定镜像集成测试后才列入兼容性矩阵。
 
 - [Docker Compose 安装](docs/installation/docker-compose.md)
 - [systemd 安装](docs/installation/systemd.md)

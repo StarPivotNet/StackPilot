@@ -2,6 +2,18 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.46 - 2026-11-13
+
+### Added
+
+- Persist SSH takeover backups, immutable deadlines, legacy connection identities and explicit application/commit/rollback states under a shared kernel operation lock.
+- Add a standalone suspend-aware systemd rollback timer and boot recovery before SSH startup, with verified restoration and explicit manual recovery on failure.
+- Exercise actual five-minute authentication-switch recovery and interrupted-boot recovery on disposable Debian 12/Ubuntu 24.04 VMs; keep management takeover disabled until independent Controller verification is connected.
+
+### Fixed
+
+- Run helper/recovery entrypoints correctly through the installed current symlink; preserve exact file permissions under strict service umasks and tolerate rebooted/collected rollback timers.
+
 ## 0.3.0-preview.45 - 2026-11-13
 
 ### Added

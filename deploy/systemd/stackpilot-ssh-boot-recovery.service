@@ -1,0 +1,30 @@
+[Unit]
+Description=StackPilot unfinished SSH takeover recovery before accepting SSH
+DefaultDependencies=no
+After=local-fs.target
+Before=ssh.service ssh.socket
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+Group=root
+WorkingDirectory=/opt/stackpilot-ssh-helper/current
+Environment=NODE_ENV=production
+Environment=STACKPILOT_SSH_STATE_DIR=/var/lib/stackpilot-ssh-helper
+ExecStart=/usr/bin/flock --no-fork --exclusive --timeout 30 /var/lib/stackpilot-ssh-helper/takeover.lock /usr/bin/node /opt/stackpilot-ssh-helper/current/apps/ssh-helper/dist/rollback.js boot
+TimeoutStartSec=90s
+StateDirectory=stackpilot-ssh-helper
+StateDirectoryMode=0700
+RuntimeDirectory=sshd
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/ssh /etc/pam.d
+ProtectHome=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+RequiredBy=ssh.service ssh.socket

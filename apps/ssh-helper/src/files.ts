@@ -23,7 +23,7 @@ export async function atomicRootFile(path: string, contents: string, mode: numbe
   const temporary = join(dirname(path), `.stackpilot-${randomUUID()}`);
   const file = await open(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, mode);
   try {
-    try { await file.writeFile(contents); await file.sync(); } finally { await file.close(); }
+    try { await file.chmod(mode); await file.writeFile(contents); await file.sync(); } finally { await file.close(); }
     await validate?.(temporary); await rename(temporary, path);
     const directory = await open(dirname(path), constants.O_RDONLY); try { await directory.sync(); } finally { await directory.close(); }
   } finally { await unlink(temporary).catch(() => undefined); }

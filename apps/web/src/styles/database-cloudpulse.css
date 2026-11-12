@@ -1,0 +1,24 @@
+.resource-cloudpulse .database-instance-content { min-width: 0; display: grid; gap: 32px; }
+.resource-cloudpulse .database-instance-lower { gap: 32px; }.resource-cloudpulse .database-instance-lower .panel-card { min-width: 0; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.resource-cloudpulse .database-instance-lower .panel-card > header > strong { font: 600 28px/1.3 var(--font-display); }
+.resource-cloudpulse :is(.database-collection-note, .slow-freshness) { margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; color: var(--muted); }
+.resource-cloudpulse .database-backup-section { min-width: 0; display: grid; gap: 24px; }
+.resource-cloudpulse .database-backup-section > h2 { margin: 0; font: 600 28px/1.3 var(--font-display); letter-spacing: .01em; }
+.resource-cloudpulse .database-plan-list { display: grid; gap: 16px; }.resource-cloudpulse .database-plan-list > article { min-width: 0; padding: 16px; border: 0; border-radius: 12px; background: var(--surface); }
+.resource-cloudpulse .database-plan-list article > div { min-width: 0; }.resource-cloudpulse .database-plan-list :is(b, span, small) { overflow-wrap: anywhere; }
+.resource-cloudpulse .database-endpoint, .resource-cloudpulse .slow-sql-summary { width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.resource-cloudpulse .database-mobile-name { min-width: 0; flex: 1; }.resource-cloudpulse .database-mobile-name b { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.resource-cloudpulse .database-rate-metric { grid-column: auto; }.resource-cloudpulse .database-rate-ring { width: 80px; height: 80px; }
+.resource-cloudpulse .database-rate-ring svg:first-child { width: 80px; height: 80px; }
+.resource-cloudpulse .database-rate-ring b { position: relative; color: var(--text); font: 500 14px/1.5 var(--font-body); }
+.database-instance-drawer :is(dd, b, code), .slow-query-drawer :is(dd, code, strong), .backup-drawer-body :is(dd, code) { min-width: 0; overflow-wrap: anywhere; }
+.database-detail-grid, .backup-drawer-body dl { min-width: 0; gap: 24px 16px; }.database-detail-section > h3 { font: 600 28px/1.3 var(--font-display); }
+.resource-cloudpulse .slow-instance-list article { min-width: 0; padding: 16px; border: 0; }.resource-cloudpulse .slow-instance-list article > div { min-width: 0; }
+@media (max-width: 773px) {
+  .resource-cloudpulse .database-instance-lower { grid-template-columns: minmax(0, 1fr); }
+  .resource-cloudpulse .database-plan-list > article { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+  .resource-cloudpulse .database-plan-list > article > div:last-child { display: flex; flex-wrap: wrap; gap: 12px; }
+  .resource-cloudpulse :is(.slow-sql-summary, .database-endpoint, .slow-fingerprint b) { white-space: normal; overflow-wrap: anywhere; }
+  .database-detail-grid, .slow-query-drawer dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .resource-cloudpulse .slow-freshness { align-items: flex-start; }.resource-cloudpulse .slow-freshness > div { min-width: 0; overflow-wrap: anywhere; }
+}

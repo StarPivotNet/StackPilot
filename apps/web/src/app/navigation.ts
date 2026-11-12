@@ -1,4 +1,4 @@
-import { CalendarDays, CloudUpload, Database, FileText, Folder, Globe2, Home, Lock, Server, Settings, Shield, TerminalSquare } from "lucide-react";
+import { CalendarDays, CloudUpload, Database, FileText, Folder, Globe2, Home, KeyRound, Lock, Server, Settings, Shield, TerminalSquare } from "lucide-react";
 import type { NavChild, NavItem, TopbarChrome, TopbarSearchResult } from "../components/layout/types";
 import { filesPagePreset } from "../features/files/model";
 import { firewallPagePreset } from "../features/firewall/validation";
@@ -15,6 +15,7 @@ const parentPageKeys = [
   "databases",
   "files",
   "terminal",
+  "ssh",
   "systemd",
   "firewall",
   "deploy",
@@ -36,6 +37,15 @@ const pageMeta: Record<string, PageMeta> = {
   "databases-backups": { title: "备份恢复", breadcrumb: "数据库", search: "搜索备份文件" },
   files: { title: "文件", breadcrumb: "资源管理", search: "搜索文件名、路径、类型..." },
   terminal: { title: "终端", breadcrumb: "运维工具", search: "搜索会话主机或命令..." },
+  ssh: { title: "SSH 管理", breadcrumb: "运维工具", search: "搜索 SSH 主机、密钥、策略..." },
+  "ssh-host-detail": { title: "SSH 主机详情", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
+  "ssh-precheck": { title: "连接预检", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
+  "ssh-confirm": { title: "确认托管策略", breadcrumb: "SSH 管理", search: "搜索 SSH 策略..." },
+  "ssh-verify": { title: "独立连接验证", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
+  "ssh-complete": { title: "托管结果", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
+  "ssh-rollback": { title: "回滚结果", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
+  "ssh-issue": { title: "签发凭据", breadcrumb: "SSH 管理", search: "搜索 SSH 密钥..." },
+  "ssh-revoke": { title: "撤销凭据", breadcrumb: "SSH 管理", search: "搜索 SSH 密钥..." },
   systemd: { title: "systemd 服务", breadcrumb: "系统管理", search: "搜索服务、主机、状态..." },
   firewall: { title: "防火墙", breadcrumb: "安全管理", search: "搜索端口、协议、来源..." },
   deploy: { title: "部署", breadcrumb: "发布管理", search: "搜索应用、版本、提交..." },
@@ -53,6 +63,7 @@ const pageMeta: Record<string, PageMeta> = {
 };
 
 const navItems: NavItem[] = [
+  // One shared navigation model supplies desktop, mobile and global search.
   {
     key: "overview",
     label: "工作台",
@@ -111,6 +122,18 @@ const navItems: NavItem[] = [
       { id: "terminal-sessions", label: "会话列表", meta: "在线会话" },
       { id: "terminal-snippets", label: "常用命令", meta: "命令片段" },
       { id: "terminal-history", label: "执行历史", meta: "历史记录" },
+    ],
+  },
+  {
+    key: "ssh",
+    label: "SSH 管理",
+    icon: KeyRound,
+    children: [
+      { id: "ssh-hosts", label: "主机托管", meta: "只读能力状态" },
+      { id: "ssh-keys", label: "凭据与密钥", meta: "凭据管理" },
+      { id: "ssh-policies", label: "访问策略", meta: "主机与账号范围" },
+      { id: "ssh-audit", label: "访问审计", meta: "SSH 操作记录" },
+      { id: "ssh-rescue", label: "救援与恢复", meta: "恢复边界" },
     ],
   },
   {
@@ -195,6 +218,7 @@ const overviewChildPages: Partial<Record<PageKey, string>> = {
 };
 
 function navPageFor(page: PageKey): ParentPageKey {
+  if (page === "ssh" || page.startsWith("ssh-")) return "ssh";
   if ((parentPageKeys as readonly string[]).includes(page)) return page as ParentPageKey;
   const childParent = navItems.find((item) => item.children.some((child) => (child.page ?? child.id) === page));
   return childParent?.key ?? (overviewChildPages[page] ? "overview" : "overview");
@@ -220,9 +244,10 @@ function activeNavEntryForPage(page: PageKey) {
 }
 
 function desktopTopbarChrome(page: PageKey): TopbarChrome {
+  void page; // Keep the route-aware call signature; CloudPulse uses shared chrome.
   return {
     white: true,
-    showBreadcrumb: page !== "overview" && page !== "sites-runtime",
+    showBreadcrumb: true,
     showCompactSearch: true,
     showStatus: true,
     showActivity: true,
@@ -231,6 +256,7 @@ function desktopTopbarChrome(page: PageKey): TopbarChrome {
 
 function navItemsForPermissions(permissions: readonly Permission[]) {
   return navItems.reduce<NavItem[]>((visible, item) => {
+    if (item.key === "ssh" && !permissions.includes("nodes:read")) return visible;
     if (item.key === "files" && !permissions.includes("files:read")) return visible;
     if (item.key === "systemd" && !permissions.includes("systemd:read")) return visible;
     if (item.key === "schedule" && !permissions.includes("schedules:read")) return visible;

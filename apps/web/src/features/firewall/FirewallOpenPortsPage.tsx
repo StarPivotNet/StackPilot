@@ -8,6 +8,7 @@ import { DataTable } from "../../components/ui/DataTable";
 import { FieldSelect } from "../../components/ui/FormControls";
 import { formatBackendDateTime } from "../../utils/time";
 import { useFirewallOpenPorts } from "./useFirewallOpenPorts";
+import { SecurityModuleTabs } from "../../components/layout/SecurityModuleTabs";
 
 const exposureMeta: Record<FirewallExposure, { label: string; tone: string }> = {
   public: { label: "公网绑定", tone: "orange" },
@@ -33,13 +34,14 @@ export function FirewallOpenPortsPage({ permissions }: { permissions: Permission
       && (exposure === "全部" || exposureMeta[row.exposure].label === exposure);
   }), [data?.ports, exposure, protocol, search]);
 
-  if (!allowed) return <ModulePageShell title={resolvePageMeta("firewall-open").title} page="firewall-open" hideHeading viewContext={false}>
+  if (!allowed) return <ModulePageShell title={resolvePageMeta("firewall-open").title} page="firewall-open" className="cloudpulse-security" viewContext={false}>
     <section className="overview-error-state" role="status"><ShieldCheck size={18} /><span>当前角色没有 firewall:read 权限</span></section>
   </ModulePageShell>;
   const warningItems = [...(backgroundError ? [`后台刷新失败，保留上次数据：${backgroundError}`] : []), ...(data?.warnings ?? [])];
   const visibleWarnings = warningItems.length > 3 ? [...warningItems.slice(0, 2), `另有 ${warningItems.length - 2} 条监听端口提示`] : warningItems;
 
-  return <ModulePageShell title={resolvePageMeta("firewall-open").title} subtitle="真实监听端口视图，自动采集 Controller 主机的 TCP / UDP 绑定。" page="firewall-open" hideHeading viewContext={false}
+  return <ModulePageShell title={resolvePageMeta("firewall-open").title} subtitle="查看 TCP / UDP 监听地址与访问边界。" page="firewall-open" className="cloudpulse-security" viewContext={false}
+    tabs={<SecurityModuleTabs module="firewall" page="firewall-open" />}
     filters={<><ModuleSearch value={search} placeholder="搜索端口、地址或主机" onChange={setSearch} /><FieldSelect label="协议" value={protocol} options={["全部", "TCP", "UDP"]} onChange={setProtocol} /><FieldSelect label="绑定范围" value={exposure} options={["全部", "公网绑定", "私网绑定", "仅本机", "指定地址"]} onChange={setExposure} /></>}
     metrics={<><MetricTile icon={RadioTower} label="监听端口" value={data ? `${data.ports.length}` : "暂不可用"} tone="blue" /><MetricTile icon={Globe2} label="公网绑定" value={data ? `${data.ports.filter((row) => row.exposure === "public").length}` : "暂不可用"} tone="orange" /><MetricTile icon={Network} label="本机 / 私网" value={data ? `${data.ports.filter((row) => row.exposure === "loopback" || row.exposure === "private").length}` : "暂不可用"} tone="green" /></>}>
     {error && !data && <div className="overview-error-state"><CircleAlert size={18} /><span>{error}</span><button type="button" onClick={() => void retry()}>重试</button></div>}

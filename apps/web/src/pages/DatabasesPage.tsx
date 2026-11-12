@@ -1,3 +1,4 @@
+import { ResourceNavigation } from "../features/hosts/ResourceNavigation";
 import { Activity, CircleAlert, CircleCheck, CircleHelp, CircleX, Database, Eye, Plus, Shield } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Permission } from "@stackpilot/contracts";
@@ -27,6 +28,7 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
   const [statusFilter, setStatusFilter] = useState(preset.status);
   const [hostFilter, setHostFilter] = useState(preset.host);
   const [rows, setRows] = useState<DatabaseInstance[]>([]);
+  const [available, setAvailable] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [credentials, setCredentials] = useState<Record<string, string> | null>(null);
@@ -37,6 +39,7 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
   const requestRef = useRef<AbortController | null>(null);
   const inFlightRef = useRef<Promise<void> | null>(null);
   const hasDataRef = useRef(false);
+  const focusAppliedRef = useRef(false);
   const rowsRef = useRef(rows);
   const selected = rows.find((row) => row.id === selectedId) ?? null;
 
@@ -52,11 +55,13 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
     const request = fetchDatabases(controller.signal).then((payload) => {
       if (controller.signal.aborted) return;
       const nextRows = payload.instances.map(databaseInstanceFromApi);
-      hasDataRef.current = true; setRows(nextRows);
+      hasDataRef.current = true; setAvailable(payload.collectionStatus !== "unavailable"); setRows(nextRows);
+      const focusName = focusAppliedRef.current ? null : initialFocusName ?? readDatabaseFocusParam();
+      const focusId = focusName ? nextRows.find((row) => row.name === focusName)?.id ?? null : null;
+      if (focusId) focusAppliedRef.current = true;
       setSelectedId((current) => {
-        if (current && nextRows.some((row) => row.id === current)) return current;
-        const pendingFocus = initialFocusName ?? readDatabaseFocusParam();
-        return pendingFocus ? nextRows.find((row) => row.name === pendingFocus)?.id ?? null : null;
+        if (current) return nextRows.some((row) => row.id === current) ? current : null;
+        return focusId;
       });
       setCollectedAt(formatBackendDateTime(payload.collectedAt));
       const status = payload.collectionStatus === "complete" ? "采集完整" : payload.collectionStatus === "partial" ? "部分采集" : "等待采集";
@@ -86,6 +91,7 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
     const focusDatabase = () => {
       const name = consumePendingDatabaseFocus() ?? readDatabaseFocusParam();
       if (!name) return;
+      focusAppliedRef.current = true;
       const target = rowsRef.current.find((row) => row.name === name);
       setSearch(name); setTypeFilter("全部"); setStatusFilter("全部"); setHostFilter("全部主机");
       setSelectedId(target?.id ?? null);
@@ -110,6 +116,7 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
     const matchStatus = statusFilter === "全部" || (statusFilter === "告警" ? isDatabaseAlert(row) : isDatabaseHealthy(row));
     return matchSearch && matchType && matchStatus && (hostFilter === "全部主机" || (row.nodeName ?? row.host) === hostFilter);
   });
+  const count = (value: number) => available ? String(value) : "等待采集";
   const postgresCount = rows.filter((row) => row.engine.includes("PostgreSQL")).length;
   const mysqlCount = rows.filter((row) => row.engine.includes("MySQL") || row.engine.includes("MariaDB")).length;
   const healthyCount = rows.filter(isDatabaseHealthy).length;
@@ -131,14 +138,13 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
   return <>
     <ModulePageShell
       title={resolvePageMeta(page).title}
-      subtitle={loading ? "正在从后端采集数据库服务清单" : `${preset.subtitle} · 后端采集于 ${collectedAt}`}
-      hideHeading
+      subtitle={loading ? "正在从后端采集数据库服务清单" : preset.subtitle}
       page={page}
-      className="module-page-databases"
-      viewContext={false}
+      className="resource-cloudpulse module-page-databases"
+      viewContext={false} tabs={<ResourceNavigation module="databases" page={page} />}
       actions={permissions.includes("databases:install") ? <button className="primary" type="button" onClick={() => setCreating(true)}><Plus size={15} /> 创建数据库实例</button> : undefined}
       filters={<><ModuleSearch value={search} placeholder="搜索数据库、主机、节点或权限" onChange={setSearch} /><FieldSelect label="类型" value={typeFilter} options={["全部", "PostgreSQL", "MySQL", "MariaDB"]} onChange={setTypeFilter} /><FieldSelect label="状态" value={statusFilter} options={["全部", "正常", "告警"]} onChange={setStatusFilter} /><FieldSelect label="主机" value={hostFilter} options={hostOptions} onChange={setHostFilter} /></>}
-      metrics={<><MetricTile icon={Database} label="PostgreSQL" value={`${postgresCount}`} tone="blue" /><MetricTile icon={Database} label="MySQL / MariaDB" value={`${mysqlCount}`} tone="blue" /><MetricTile icon={Activity} label="运行中" value={`${healthyCount}`} tone="green" /><MetricTile icon={Shield} label="告警" value={`${alertCount}`} tone={alertCount ? "orange" : "green"} /><BackupRateMetric value={backupSuccessRate} /><MetricTile icon={CircleAlert} label="慢查询" value={knownSlowRows.length ? `${slowQueryCount}` : "待采集"} tone={slowQueryCount ? "orange" : knownSlowRows.length ? "green" : "gray"} /></>}
+      metrics={<><MetricTile icon={Database} label="PostgreSQL" value={count(postgresCount)} tone="blue" /><MetricTile icon={Database} label="MySQL / MariaDB" value={count(mysqlCount)} tone="blue" /><MetricTile icon={Activity} label="运行中" value={count(healthyCount)} tone="green" /><MetricTile icon={Shield} label="告警" value={count(alertCount)} tone={alertCount ? "orange" : "green"} /><BackupRateMetric value={backupSuccessRate} /><MetricTile icon={CircleAlert} label="慢查询" value={knownSlowRows.length ? `${slowQueryCount}` : "待采集"} tone={slowQueryCount ? "orange" : knownSlowRows.length ? "green" : "gray"} /></>}
       side={selected ? <DatabaseInstanceDrawer instance={selected} permissions={permissions} onClose={() => setSelectedId(null)} onCopy={() => void copyEndpoint(selected)} notify={notify} /> : null}
       sideModal={Boolean(selected)}
     >
@@ -184,7 +190,8 @@ function BackupStatus({ status }: { status: DatabaseInstance["backupStatus"] }) 
 }
 
 function BackupRateMetric({ value }: { value: number | null }) {
-  const radius = 18; const circumference = 2 * Math.PI * radius; const display = value === null ? "待采集" : `${value}%`; const tone = value === null ? "gray" : value >= 95 ? "green" : "orange";
+  if (value === null) return <article aria-label="备份成功率 待采集"><CircleHelp size={20} aria-hidden="true" /><span>备份成功率</span><strong>待采集</strong></article>;
+  const radius = 18; const circumference = 2 * Math.PI * radius; const display = `${value}%`; const tone = value >= 95 ? "green" : "orange";
   return <article className="database-rate-metric"><span className={`database-rate-ring ${tone}`} aria-label={`备份成功率 ${display}`}><svg viewBox="0 0 44 44" aria-hidden="true"><circle className="database-rate-track" cx="22" cy="22" r={radius} /><circle className="database-rate-value" cx="22" cy="22" r={radius} strokeDasharray={circumference} strokeDashoffset={value === null ? circumference : circumference * (1 - value / 100)} /></svg><b>{display}</b></span><span>备份成功率</span><strong>{display}</strong></article>;
 }
 

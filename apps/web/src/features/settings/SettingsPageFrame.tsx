@@ -6,10 +6,10 @@ import { SettingsTabs } from "./SettingsTabs";
 
 const settingsCopy: Record<string, { subtitle: string }> = {
   "settings-general": {
-    subtitle: "管理面板身份、区域偏好、只读状态与访问令牌。",
+    subtitle: "查看面板环境、管理访问令牌与操作记录。",
   },
   "settings-proxy": {
-    subtitle: "管理代理节点、路由规则和运行时环境变量。",
+    subtitle: "查看出口代理、路由规则与运行时配置能力。",
   },
   "settings-security": {
     subtitle: "集中维护登录保护、会话边界和来源网络访问策略。",
@@ -53,7 +53,6 @@ function SettingsPageFrame({
       subtitle={copy.subtitle}
       page={page}
       className="settings-page"
-      hideHeading
       viewContext={false}
       tabs={<SettingsTabs activeTab={settingsPagePreset(page)} setPage={setPage} inert={inert} />}
       actions={actions}

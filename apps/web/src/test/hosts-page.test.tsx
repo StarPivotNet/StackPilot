@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchHosts, type HostMonitoringRecord } from "../api/hostsApi";
-import { formatTimestamp } from "../features/hosts/viewModel";
+import { formatTimestamp, toHostView } from "../features/hosts/viewModel";
 import { HostsPage } from "../pages/HostsPage";
 
 vi.mock("../api/hostsApi", () => ({ fetchHosts: vi.fn() }));
@@ -32,15 +32,43 @@ describe("hosts live monitoring page", () => {
   beforeEach(() => { notify.mockClear(); vi.mocked(fetchHosts).mockReset(); });
   afterEach(() => vi.useRealTimers());
 
-  it("removes the visible heading and summary from the hosts page", async () => {
+  it("weights every detected disk by capacity rather than trusting a system-volume percentage", () => {
+    const view = toHostView(host({ disk: { totalBytes: 100 * gib, usedBytes: 10 * gib, percent: 10, volumes: [
+      { label: "system", mountPath: "/", totalBytes: 100 * gib, usedBytes: 10 * gib, percent: 10 },
+      { label: "data", mountPath: "/data", totalBytes: 900 * gib, usedBytes: 810 * gib, percent: 90 },
+    ] } }));
+    expect(view.disk).toBe(82);
+    expect(view.diskTotalBytes).toBe(1000 * gib);
+    expect(view.diskUsedBytes).toBe(820 * gib);
+    expect(view.diskVolumes).toHaveLength(2);
+  });
+
+  it("retains the selected stable host when a fresh snapshot reorders multiple nodes", async () => {
+    vi.useFakeTimers();
+    const other = host({ id: "node-2", name: "second-node", address: "198.18.0.2", owner: "第二组", cpuPercent: 21 });
+    vi.mocked(fetchHosts)
+      .mockResolvedValueOnce({ collectedAt: "2026-07-12T04:30:00Z", hosts: [host(), other] })
+      .mockResolvedValueOnce({ collectedAt: "2026-07-12T04:30:10Z", hosts: [{ ...other, cpuPercent: 37 }, host()] });
+    render(<HostsPage page="hosts" notify={notify} />);
+    await act(async () => undefined);
+    fireEvent.click(screen.getAllByRole("button", { name: "查看主机 second-node" })[0]);
+    await act(async () => { vi.advanceTimersByTime(10_000); await Promise.resolve(); });
+    const drawer = screen.getByRole("dialog", { name: "second-node" });
+    expect(within(drawer).getByText("node-2")).toBeInTheDocument();
+    expect(within(drawer).getByText("第二组")).toBeInTheDocument();
+    expect(within(drawer).getByText("37%")).toBeInTheDocument();
+    expect(within(drawer).queryByText(longHostname)).not.toBeInTheDocument();
+  });
+
+  it("shows the CloudPulse heading and summary from the hosts page", async () => {
     vi.mocked(fetchHosts).mockResolvedValue({ collectedAt: "2026-07-12T04:30:02.000Z", hosts: [host()] });
     const { container } = render(<HostsPage page="hosts" notify={notify} />);
 
     await screen.findAllByTitle(longHostname);
 
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "主机", level: 1 })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "主机", level: 1 })).not.toHaveClass("sr-only");
     expect(screen.queryByText("正在采集主机、服务与资源状态")).not.toBeInTheDocument();
   });
 
@@ -124,14 +152,14 @@ describe("hosts live monitoring page", () => {
     vi.mocked(fetchHosts).mockResolvedValue({ collectedAt: "2026-07-12T04:30:02.000Z", hosts: [host(), host({ id: "node-dev", name: "dev-node", environment: "开发", address: "198.18.0.2" })] });
     const { container } = render(<HostsPage page="hosts-prod" notify={notify} />);
     await screen.findAllByText(longHostname);
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "生产环境", level: 1 })).toBeInTheDocument();
     expect(screen.queryByText("生产运行视图")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("搜索主机名、IP、服务或版本")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /健康/ })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("搜索主机名、IP、服务或版本")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /健康/ })).toBeInTheDocument();
     expect(screen.getByText("生产主机")).toBeInTheDocument();
     expect(screen.queryByText("dev-node")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /环境/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /环境/ })).toBeInTheDocument();
     expect(screen.getByLabelText("CPU 24%，内存 48%，磁盘 80%")).toBeInTheDocument();
     expect(screen.getAllByText(formatTimestamp("2026-07-12T04:30:00.000Z")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /刷新|重新采集|重新扫描/ })).not.toBeInTheDocument();

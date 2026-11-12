@@ -189,3 +189,16 @@
   .terminal-history-detail dl { grid-template-columns: minmax(0, 1fr); }
   .terminal-history-drawer .drawer-actions > button { flex: 1 1 0; }
 }
+
+.terminal-history-table { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.terminal-history-table table { width: 100%; table-layout: fixed; }
+.terminal-history-table .terminal-history-command { margin: 0; }
+.terminal-history-table :is(td,th) { padding: 16px; }
+.terminal-history-table td { min-width: 0; vertical-align: top; }
+.terminal-history-table-output { min-width: 0; margin: 8px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 400 14px/1.5 var(--font-mono); }
+.terminal-history-host { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.terminal-history-actor { overflow-wrap: anywhere; font-size: 12px; color: var(--muted); }
+.terminal-history-table time { font: 500 12px/1.4 var(--font-body); color: var(--muted); }
+.terminal-history-table-actions { display: grid; gap: 8px; }
+.terminal-history-table-actions button { justify-content: flex-start; white-space: normal; text-align: left; }
+@media (max-width:773px) { .terminal-history-context b { white-space:normal; overflow-wrap:anywhere; } }

@@ -23,9 +23,9 @@ describe("overview health API states", () => {
   it("announces loading while the API request is pending", () => {
     vi.mocked(fetchOverviewHealth).mockReturnValue(new Promise(() => undefined));
     render(<OverviewHealthPage notify={notify} />);
-    expect(screen.getByText("正在从 /api/overview/health 实时采集节点状态")).toBeInTheDocument();
-    expect(screen.getAllByText("正在采集节点状态")).toHaveLength(2);
-    expect(screen.getByRole("heading", { name: "集群状态" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "正在采集节点状态" }).closest("section")).toHaveAttribute("role", "status");
+    expect(screen.getAllByText("正在采集节点状态").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "集群状态" })).not.toHaveClass("sr-only");
     expect(screen.getByRole("button", { name: "Agent 管理" })).toBeInTheDocument();
   });
 
@@ -34,7 +34,8 @@ describe("overview health API states", () => {
     render(<OverviewHealthPage notify={notify} />);
     expect(await screen.findByText("Controller 暂不可用")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
-    expect(screen.getAllByText("实时采集失败，未显示示例节点")).toHaveLength(2);
+    expect(screen.getByRole("alert")).toHaveTextContent("Controller 暂不可用");
+    expect(screen.queryAllByRole("button", { name: /节点详情/ })).toHaveLength(0);
     expect(notify).toHaveBeenCalledWith("Controller 暂不可用", "danger");
   });
 
@@ -111,7 +112,7 @@ describe("overview health API states", () => {
     expect(within(drawer).getByText("运行时间")).toBeInTheDocument();
     expect(within(drawer).getByText("CPU")).toBeInTheDocument();
     expect(within(drawer).getByText("服务列表")).toBeInTheDocument();
-    expect(within(drawer).getByText("Controller")).toBeInTheDocument();
+    expect(drawer.querySelector(".node-service-list strong")).toHaveTextContent("Controller");
   });
 });
 
@@ -151,16 +152,17 @@ describe("overview risks API states", () => {
     render(<OverviewRisksPage notify={notify} />);
 
     expect(await screen.findByText("风险采集暂不可用")).toBeInTheDocument();
-    expect(screen.getAllByText("风险采集失败，未显示示例数据")).toHaveLength(2);
+    expect(screen.getByRole("alert")).toHaveTextContent("风险采集暂不可用");
+    expect(screen.queryAllByRole("button", { name: /详情/ })).toHaveLength(0);
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "重试" }));
 
-    expect(await screen.findByText("12:30:00")).toBeInTheDocument();
+    expect(await screen.findByText("12:30:00", { selector: ".module-metrics strong" })).toBeInTheDocument();
     expect(screen.queryByText("风险采集暂不可用")).not.toBeInTheDocument();
   });
 
-  it("removes the heading and filters while polling silently and preserving detail by stable id", async () => {
+  it("keeps visible navigation while polling silently and preserving detail by stable id", async () => {
     vi.useFakeTimers();
     vi.mocked(fetchOverviewRisks)
       .mockResolvedValueOnce({ risks: [riskFixture], scannedAt: "12:30:00" })
@@ -170,7 +172,7 @@ describe("overview risks API states", () => {
     await act(async () => undefined);
 
     expect(screen.queryByRole("button", { name: "重新扫描" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "风险中心" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "风险中心" })).not.toHaveClass("sr-only");
     const page = screen.getByRole("heading", { name: "风险中心" }).closest(".module-page-overview-risks");
     const metrics = page?.querySelector(".module-metrics");
     const listSection = page?.querySelector(".risk-list-section");
@@ -197,7 +199,7 @@ describe("overview risks API states", () => {
 
     expect(fetchOverviewRisks).toHaveBeenCalledTimes(2);
     expect(within(screen.getByRole("dialog", { name: riskFixture.title })).getByText("更新后的入口影响")).toBeInTheDocument();
-    expect(screen.getByText("12:30:10")).toBeInTheDocument();
+    expect(screen.getByText("12:30:10", { selector: ".module-metrics strong" })).toBeInTheDocument();
     expect(notify).not.toHaveBeenCalled();
   });
 });

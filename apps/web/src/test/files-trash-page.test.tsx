@@ -7,13 +7,13 @@ const entry = { id: "11111111-1111-4111-8111-111111111111", name: "old.log", ori
 const payload = { entries: [entry], collectedAt: "2026-07-14T00:00:00.000Z" };
 describe("files trash page", () => {
   afterEach(() => vi.unstubAllGlobals());
-  it("removes the visible heading while retaining trash action and freshness", async () => {
+  it("shows the CloudPulse heading while retaining trash action and freshness", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 })));
     const { container } = render(<FileTrashPage page="files-trash" notify={vi.fn()} canWrite canDelete />);
     await screen.findAllByText("old.log");
-    expect(container.querySelector(".module-head h1:not(.sr-only)")).not.toBeInTheDocument();
+    expect(container.querySelector(".module-head h1:not(.sr-only)")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "回收站" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "回收站" })).not.toHaveClass("sr-only");
     expect(screen.getByRole("button", { name: "清空回收站" })).toBeInTheDocument();
     expect(screen.getByText(/后端采集于/)).toBeInTheDocument();
   });

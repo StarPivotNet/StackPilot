@@ -1,6 +1,4 @@
-.module-page-deploy-rollbacks {
-  padding: 32px 32px 64px;
-}
+.module-page-deploy-rollbacks { min-width: 0; }
 
 .module-page-deploy-rollbacks .module-view-context,
 .module-page-deploy-rollbacks .module-filter-line,
@@ -323,3 +321,7 @@
     padding-inline: 12px;
   }
 }
+
+.module-page-deploy-rollbacks .module-table-wrap { border:1px solid var(--line); border-radius:var(--radius-lg); background:var(--surface); box-shadow:var(--shadow-subtle); }
+.module-page-deploy-rollbacks .module-metrics article { box-shadow:var(--shadow-subtle); }
+.module-page-deploy-rollbacks .deploy-tabs { padding:0; background:transparent; }

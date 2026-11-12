@@ -41,7 +41,7 @@
 .module-page-terminal-snippets .terminal-snippet-library { padding: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .module-page-terminal-snippets .terminal-snippet-library article {
   min-height: 240px;
-  padding: 20px;
+  padding: 24px;
   border: 0;
   border-radius: var(--radius-lg);
   display: grid;
@@ -132,7 +132,7 @@
 
 .terminal-snippets-live-layout { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 16px; align-items: start; }
 .terminal-snippets-live-page .terminal-snippet-library { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.terminal-live-task-panel { min-width: 0; position: sticky; top: 16px; padding: 20px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-medium); }
+.terminal-live-task-panel { min-width: 0; position: sticky; top: 16px; padding: 24px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-medium); }
 .terminal-live-task-panel > header { min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--primary); }
 .terminal-live-task-panel > header span { min-width: 0; display: grid; gap: 4px; }
 .terminal-live-task-panel > header strong { color: var(--text); font: 600 16px/1.3 var(--font-display); }
@@ -149,7 +149,7 @@
 .terminal-live-task-result > pre { grid-column: 1 / -1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .terminal-live-task-result > code { padding: 8px; border-radius: var(--radius-md); color: var(--text-soft); background: var(--surface-soft); font: 400 12px/1.5 var(--font-mono); }
 .terminal-live-task-result > p { color: var(--text-soft); font-size: 14px; line-height: 1.5; }
-.terminal-live-task-result > pre { max-height: 320px; padding: 12px; border-radius: var(--radius-md); color: #f8fafc; background: #0f172a; font: 400 12px/1.5 var(--font-mono); white-space: pre-wrap; overflow: auto; }
+.terminal-live-task-result > pre { max-height: 320px; padding: 12px; border-radius: var(--radius-md); color: var(--text); background: var(--surface-soft); font: 400 14px/1.5 var(--font-mono); white-space: pre-wrap; overflow: auto; }
 .terminal-snippet-password { display: grid; gap: 8px; }
 .terminal-snippet-password span { color: var(--text-soft); font-size: 14px; font-weight: 500; }
 .terminal-snippet-password input { width: 100%; height: var(--control-md); padding: 10px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--text); background: var(--surface); font: 400 15px/1.4 var(--font-body); }

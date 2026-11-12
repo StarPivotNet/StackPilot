@@ -62,7 +62,7 @@ describe("overview tasks workbench", () => {
     const { container } = render(<OverviewTasksPage notify={notify} setPage={setPage} />);
 
     expect(await screen.findByText("备份数据库")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "任务流" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "任务流" })).not.toHaveClass("sr-only");
     expect(screen.queryByText("整台设备任务信号由后端实时采集")).not.toBeInTheDocument();
     expect(screen.queryByText("工作台 / 设备任务")).not.toBeInTheDocument();
     expect(screen.queryByText("设备采集 1 条")).not.toBeInTheDocument();

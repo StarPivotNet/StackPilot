@@ -52,10 +52,10 @@ describe("audit real backend", () => {
   it.each([
     ["audit", "审计日志"],
     ["audit-all", "全部日志"],
-  ])("removes the visible heading and context on %s", async (page, title) => {
+  ])("renders the design heading without redundant context on %s", async (page, title) => {
     const { container } = render(<AuditPage page={page} notify={vi.fn()} permissions={["audit:read"]} />);
     await screen.findAllByText("file.upload");
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
   });
 

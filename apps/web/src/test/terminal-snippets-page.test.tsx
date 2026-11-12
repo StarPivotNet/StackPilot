@@ -36,12 +36,12 @@ describe("terminal snippets real backend page", () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it("removes the visible heading and summary while retaining freshness", async () => {
+  it("shows the CloudPulse heading while retaining freshness", async () => {
     const { container } = render(<TerminalPage page="terminal-snippets" notify={vi.fn()} permissions={[...permissions]} />);
     await screen.findByText("系统资源概览");
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "常用命令" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "常用命令" })).not.toHaveClass("sr-only");
     expect(screen.getByText(/后端更新于/)).toBeInTheDocument();
   });
 

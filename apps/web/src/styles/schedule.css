@@ -1,0 +1,53 @@
+.schedule-page { min-width:0; }
+.schedule-page .module-filter-line { padding:0; background:transparent; box-shadow:none; }
+.schedule-page .module-table-wrap { min-width:0; border:1px solid var(--line); border-radius:var(--radius-lg); background:var(--surface); box-shadow:var(--shadow-subtle); }
+.schedule-page .module-table { width:100%; table-layout:fixed; }
+.schedule-page .module-table :is(td,th) { padding:16px; }
+.schedule-page .module-table td :is(code, .module-row-link b) { display:block; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.schedule-page .module-table code, .schedule-command { font:400 14px/1.5 var(--font-mono); }
+.schedule-page .module-table .module-row-link { min-width:0; width:100%; }
+.schedule-result { display:inline-flex; align-items:center; gap:8px; min-height:32px; border-radius:var(--radius-sm); font:500 12px/1.4 var(--font-body); }
+.schedule-result svg { flex:0 0 auto; }
+.schedule-page .table-actions { min-width:0; display:flex; flex-wrap:wrap; gap:8px; }
+.schedule-page .table-actions button { min-height:34px; padding:8px; border:0; border-radius:var(--radius-md); color:var(--muted); background:transparent; font:500 14px/1.5 var(--font-body); }
+.schedule-page .table-actions button:hover { color:var(--primary); background:var(--primary-soft); }
+.schedule-calendar { min-width:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; padding:0; background:transparent; }
+.schedule-calendar > article { min-width:0; min-height:160px; display:grid; align-content:start; gap:12px; padding:24px; border:1px solid var(--line); border-radius:var(--radius-lg); color:var(--text); background:var(--surface); box-shadow:var(--shadow-subtle); cursor:pointer; }
+.schedule-calendar > article:hover { border-color:#CBD5E1; }
+.schedule-calendar > article > span:first-child { color:var(--primary); font:500 12px/1.4 var(--font-body); }
+.schedule-calendar > article > strong { min-width:0; overflow-wrap:anywhere; font:500 16px/1.6 var(--font-body); }
+.schedule-calendar > article > em { min-width:0; color:var(--muted); font:400 14px/1.5 var(--font-mono); overflow-wrap:anywhere; }
+.schedule-calendar .schedule-result { justify-self:start; }
+.schedule-calendar.is-empty { grid-template-columns:minmax(0,1fr); }
+.schedule-source-note, .schedule-load-error { min-width:0; display:flex; align-items:flex-start; gap:12px; padding:16px; border:0; border-radius:var(--radius-lg); background:var(--surface-soft); color:var(--muted); }
+.schedule-source-note > svg { flex:0 0 auto; color:var(--primary); }
+.schedule-source-note > div, .schedule-load-error > div { min-width:0; display:grid; gap:4px; }
+.schedule-source-note strong, .schedule-load-error strong { color:var(--text); font-size:14px; font-weight:500; }
+.schedule-source-note span, .schedule-load-error p { margin:0; font-size:14px; overflow-wrap:anywhere; }
+.schedule-load-error button { margin-left:auto; flex-shrink:0; }
+:is(.schedule-job-modal,.schedule-job-drawer) { min-width:0; border:0; color:var(--text); background:var(--surface); box-shadow:var(--shadow-overlay); }
+:is(.schedule-job-modal,.schedule-job-drawer) :is(.drawer-head,.drawer-body,.drawer-actions) { min-width:0; padding:24px; }
+.schedule-modal-form { min-width:0; display:grid; gap:24px; }
+.schedule-modal-source { display:flex; align-items:center; gap:12px; padding:16px; border-radius:var(--radius-lg); background:var(--surface-soft); }
+.schedule-modal-source > div { min-width:0; display:grid; gap:4px; }
+.schedule-modal-source strong { font:500 14px/1.5 var(--font-body); }
+.schedule-modal-source span { color:var(--muted); font-size:12px; }
+.schedule-modal-source > b { margin-left:auto; color:var(--primary); font-size:12px; }
+.schedule-form-section { min-width:0; display:grid; gap:16px; }
+.schedule-form-section-head { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.schedule-form-section-head > span { font:500 14px/1.5 var(--font-body); color:var(--text-soft); }
+.schedule-form-section-head > em { font:400 14px/1.5 var(--font-body); color:var(--muted); }
+.schedule-cron-presets { display:flex; flex-wrap:wrap; gap:8px; }
+.schedule-preset-button { min-height:34px; padding:8px 12px; border:1px solid var(--line); border-radius:var(--radius-md); color:var(--muted); background:var(--surface); font:500 14px/1.5 var(--font-body); }
+.schedule-preset-button.active { color:#FFFFFF; border-color:transparent; background:var(--primary); }
+.schedule-command-preview { min-width:0; padding:16px; border-radius:var(--radius-lg); color:var(--text); background:var(--surface-soft); }
+.schedule-command-preview > div { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; font-size:12px; color:var(--muted); }
+.schedule-command-preview code { display:block; color:var(--text); background:transparent; font:400 14px/1.5 var(--font-mono); white-space:pre-wrap; overflow-wrap:anywhere; }
+.schedule-managed-note { margin:0; color:var(--muted); font:400 14px/1.5 var(--font-body); }
+.schedule-job-drawer .detail-kv p { min-width:0; border:0; padding:12px 0; background:transparent; }
+.schedule-job-drawer .detail-kv b { min-width:0; font:400 14px/1.5 var(--font-mono); overflow-wrap:anywhere; white-space:pre-wrap; }
+.schedule-job-drawer .compact-log { min-width:0; padding:16px; border:0; border-radius:var(--radius-lg); color:var(--text); background:var(--surface-soft); font:400 14px/1.5 var(--font-mono); }
+.schedule-job-drawer .compact-log :is(p,pre) { margin:0 0 12px; color:inherit; font:inherit; white-space:pre-wrap; overflow-wrap:anywhere; }
+.schedule-page button:disabled { opacity:.4; cursor:not-allowed; }
+@media (max-width:960px) { .schedule-calendar { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:600px) { .schedule-calendar { grid-template-columns:minmax(0,1fr); gap:16px; } .schedule-calendar > article { min-height:0; padding:16px; } .schedule-page .module-card-code { font:400 14px/1.5 var(--font-mono); white-space:pre-wrap; overflow-wrap:anywhere; } .schedule-page .module-card-head .module-row-link { min-width:0; } .schedule-page .module-card-head b { overflow-wrap:anywhere; } :is(.schedule-job-modal,.schedule-job-drawer) { max-width:100vw; } :is(.schedule-job-modal,.schedule-job-drawer) :is(.drawer-head,.drawer-body,.drawer-actions) { padding:16px; } .schedule-load-error { flex-wrap:wrap; } }

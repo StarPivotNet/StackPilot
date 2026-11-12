@@ -75,23 +75,23 @@ describe("site management UI", () => {
 
     await act(async () => Promise.resolve());
 
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
     expect(screen.queryByText("站点资产清单")).not.toBeInTheDocument();
     expect(screen.queryByText(/总数 \d+ 个/)).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "网站" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "网站" })).not.toHaveClass("sr-only");
   });
 
-  it("removes the visible heading from the site deployment page", async () => {
+  it("shows the CloudPulse heading from the site deployment page", async () => {
     vi.mocked(listAgentNodes).mockResolvedValue({ nodes: [] });
     const { container } = render(<SitesPage page="sites-create" notify={vi.fn()} permissions={["sites:read", "sites:deploy", "nodes:read"]} />);
 
     await act(async () => Promise.resolve());
 
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "部署站点" })).toHaveClass("sr-only");
-    expect(screen.queryByText("生产先预检再确认上线；预发仅构建和预检，不切换生产流量。")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "部署站点" })).not.toHaveClass("sr-only");
+    expect(screen.getByText("生产先预检再确认上线；预发仅构建和预检，不切换生产流量。")).toBeInTheDocument();
   });
 
   it("turns a successful preparation result into an activatable plan", async () => {

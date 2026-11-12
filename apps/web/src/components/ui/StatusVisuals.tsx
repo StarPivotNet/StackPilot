@@ -3,6 +3,7 @@ import type { Tone } from "../../types/app";
 
 function Sparkline({ values, tone = "blue" }: { values: number[]; tone?: string }) {
   const gradientId = `spark-${useId().replace(/:/g, "")}`;
+  if (!values.length) return <span className="resource-unavailable">暂无采集数据</span>;
   const safeValues = values.length > 0 ? values : [0];
   const max = Math.max(...safeValues);
   const min = Math.min(...safeValues);
@@ -55,6 +56,7 @@ function Sparkline({ values, tone = "blue" }: { values: number[]; tone?: string 
 }
 
 function Bar({ value, tone }: { value: string; tone: Tone }) {
+  if (!Number.isFinite(Number.parseFloat(value))) return <span className="resource-unavailable">{value || "暂无采集数据"}</span>;
   return (
     <span className="bar-cell">
       <em>{value}</em>

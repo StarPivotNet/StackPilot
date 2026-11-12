@@ -1,5 +1,5 @@
 import { exportOverviewTasks, fetchOverviewTasks } from "../api/overviewApi";
-import type { OverviewMetricIcon, OverviewTaskPageData, OverviewTaskRecord, OverviewTaskStatus } from "../api/overviewApi";
+import type { OverviewMetricIcon, OverviewTaskRecord, OverviewTaskStatus } from "../api/overviewApi";
 import {
   CalendarDays,
   CheckCircle2,
@@ -8,18 +8,18 @@ import {
   Download,
   LoaderCircle,
   Plus,
-  RefreshCw,
   TerminalSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { setQuickRoute } from "../app/routing";
 import { ModulePageShell } from "../components/layout/ModulePageShell";
 import { MetricTile } from "../components/ui/Cards";
 import { DetailDrawer } from "../components/ui/DetailDrawer";
 import { useOptionalOverviewData } from "../features/overview/OverviewDataProvider";
 import { overviewMetricIcons, reportApiError, taskTone } from "../features/overview/model";
-import { useAutoRefresh } from "../hooks/useAutoRefresh";
+import { useOverviewResource } from "../features/overview/useOverviewResource";
+import { OverviewNavigation, OverviewState } from "../features/overview/OverviewUI";
 import type { Notify, SetPage } from "../types/app";
 import { formatBackendDateTime } from "../utils/time";
 
@@ -34,74 +34,26 @@ const taskStatusIcons: Record<OverviewTaskStatus, LucideIcon> = {
 
 function OverviewTasksPage({ notify, setPage }: { notify: Notify; setPage: SetPage }) {
   const shared = useOptionalOverviewData();
-  const usesSharedOverview = shared !== null;
-  const [localRows, setLocalRows] = useState<OverviewTaskRecord[]>([]);
-  const [localPageData, setLocalPageData] = useState<OverviewTaskPageData | null>(null);
-  const [localLoading, setLocalLoading] = useState(true);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const local = useOverviewResource(fetchOverviewTasks, !shared, (reason) => reportApiError(reason, notify, "任务流后端加载失败"));
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const rows = shared?.overview?.tasks ?? localRows;
-  const pageData = shared?.overview?.taskPage ?? localPageData;
-  const loading = shared ? shared.loading && !shared.overview : localLoading;
-  const loadError = shared?.error ?? localError;
+  const [exporting, setExporting] = useState(false);
+  const rows = shared?.overview?.tasks ?? local.data?.tasks ?? [];
+  const pageData = shared?.overview?.taskPage ?? local.data?.page;
+  const loading = (shared?.loading ?? local.loading) && !(shared?.overview || local.data);
+  const loadError = shared?.error ?? local.error;
   const selected = rows.find((row) => row.id === selectedId) ?? null;
+  if (selectedId && !selected) setSelectedId(null);
   const overviewMetricIconForTask = (icon: OverviewMetricIcon) => overviewMetricIcons[icon] ?? CalendarDays;
 
-  const syncTasks = useCallback((payload: Awaited<ReturnType<typeof fetchOverviewTasks>>) => {
-    setLocalRows(payload.tasks);
-    setLocalPageData(payload.page);
-  }, []);
-
-  const loadTasks = useCallback(async (signal?: AbortSignal) => {
-    setLocalLoading(true);
-    setLocalError(null);
-    try {
-      const payload = await fetchOverviewTasks(signal);
-      syncTasks(payload);
-    } catch (error) {
-      if (signal?.aborted) return;
-      const message = error instanceof Error ? error.message : "任务流后端加载失败";
-      setLocalError(message);
-      reportApiError(error, notify, "任务流后端加载失败");
-    } finally {
-      if (!signal?.aborted) setLocalLoading(false);
-    }
-  }, [notify, syncTasks]);
-
-  useEffect(() => {
-    if (usesSharedOverview) return;
-    const controller = new AbortController();
-    fetchOverviewTasks(controller.signal)
-      .then((payload) => {
-        syncTasks(payload);
-        setLocalError(null);
-      })
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        const message = error instanceof Error ? error.message : "任务流后端加载失败";
-        setLocalError(message);
-        reportApiError(error, notify, "任务流后端加载失败");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLocalLoading(false);
-      });
-    return () => controller.abort();
-  }, [notify, syncTasks, usesSharedOverview]);
-
-  const autoRefreshTasks = useCallback(async (signal: AbortSignal) => {
-    const payload = await fetchOverviewTasks(signal);
-    syncTasks(payload);
-  }, [syncTasks]);
-
-  useAutoRefresh(autoRefreshTasks, undefined, !usesSharedOverview && !loading && !loadError);
-
   const exportTasksFromApi = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       const payload = await exportOverviewTasks();
       notify(payload.message, payload.tone ?? "info");
     } catch (error) {
       reportApiError(error, notify, "导出任务流失败");
-    }
+    } finally { setExporting(false); }
   };
 
   const openScheduleCreate = () => {
@@ -110,18 +62,19 @@ function OverviewTasksPage({ notify, setPage }: { notify: Notify; setPage: SetPa
   };
 
   const freshness = pageData?.collectedAt ?? shared?.overview?.collectedAt;
-  const retry = () => usesSharedOverview ? shared.reload() : loadTasks();
+  const retry = () => { void (shared ? shared.reload() : local.reload()); };
 
   return (
     <ModulePageShell
       title={pageData?.title ?? "任务流"}
-      hideHeading
+      subtitle="在同一时间线上追踪任务，从排队到执行结果。"
+      tabs={<OverviewNavigation active="overview-tasks" />}
       page="overview-tasks"
       viewContext={false}
       actions={(
         <>
           <span className="task-page-freshness" role="status"><Clock3 size={14} aria-hidden="true" />{freshness ? `采集于 ${formatBackendDateTime(freshness)}` : "等待采集"}</span>
-          <button className="ghost" type="button" onClick={exportTasksFromApi}><Download size={14} /> 导出</button>
+          <button className="ghost" type="button" onClick={exportTasksFromApi} disabled={exporting}><Download size={14} /> {exporting ? "正在导出" : "导出"}</button>
           <button className="ghost" type="button" onClick={openScheduleCreate}><Plus size={14} /> 新建计划任务</button>
         </>
       )}
@@ -140,6 +93,7 @@ function OverviewTasksPage({ notify, setPage }: { notify: Notify; setPage: SetPa
           </div>
           <div className="overview-event-log">
             <strong>执行日志</strong>
+            {!selected.logs.length && <p>暂无执行日志</p>}
             {selected.logs.map((log, index) => <p key={`${selected.id}-${index}-${log}`}><span>{index + 1}</span>{log}</p>)}
           </div>
         </DetailDrawer>
@@ -148,21 +102,15 @@ function OverviewTasksPage({ notify, setPage }: { notify: Notify; setPage: SetPa
       <section className="task-workflow" aria-label="任务执行记录">
         <header className="task-workflow-head">
           <div>
-            <strong>任务执行记录</strong>
+            <h2>任务执行记录</h2>
             <span>{loading ? "正在采集" : `${rows.length} 条结果`}</span>
           </div>
         </header>
 
         {loading && rows.length === 0 && (
-          <div className="task-page-state" role="status"><LoaderCircle className="is-spinning" size={20} />正在采集任务</div>
+          <OverviewState loading title="正在采集任务" />
         )}
-        {loadError && (
-          <div className="task-page-state error" role="alert">
-            <CircleX size={20} />
-            <span><strong>任务数据暂不可用</strong><small>{loadError}</small></span>
-            <button className="ghost small" type="button" onClick={() => void retry()}><RefreshCw size={14} /> 重试</button>
-          </div>
-        )}
+        {loadError && <OverviewState error={loadError} title="任务数据暂不可用" onRetry={retry} />}
         {!loading && !loadError && rows.length === 0 && (
           <div className="task-page-state" role="status"><Clock3 size={20} />暂无任务，自动采集将继续运行</div>
         )}

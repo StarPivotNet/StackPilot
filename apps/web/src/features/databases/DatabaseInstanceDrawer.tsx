@@ -1,5 +1,5 @@
 import { Clock3, Copy, Database, LockKeyhole, Power, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { DatabaseOperationPlan, Permission } from "@stackpilot/contracts";
 import { createDatabaseOperationPlan, fetchDatabaseDetail } from "../../api/databasesApi";
 import { DetailDrawer } from "../../components/ui/DetailDrawer";
@@ -9,9 +9,9 @@ import { DatabasePlanDialog } from "./DatabasePlanDialog";
 import { formatBackendDateTime } from "../../utils/time";
 
 export function DatabaseInstanceDrawer({ instance, permissions, onClose, onCopy, notify }: { instance: DatabaseInstance; permissions: Permission[]; onClose: () => void; onCopy: () => void; notify: (message: string, tone?: "success" | "info" | "warning" | "danger") => void }) {
-  const { data, loading, error, retry, refresh } = usePollingResource((signal) => fetchDatabaseDetail(instance.id, signal));
+  const { data: loadedData, loading, error, retry, refresh } = usePollingResource((signal) => fetchDatabaseDetail(instance.id, signal), null, true, instance.id);
+  const data = loadedData?.instance.id === instance.id ? loadedData : null;
   const [plan, setPlan] = useState<DatabaseOperationPlan | null>(null); const [planning, setPlanning] = useState(false);
-  useEffect(() => { if (data && data.instance.id !== instance.id) onClose(); }, [data, instance.id, onClose]);
   const createPlan = async (input: Parameters<typeof createDatabaseOperationPlan>[0]) => {
     setPlanning(true); try { setPlan((await createDatabaseOperationPlan(input)).plan); } catch (caught) { notify(caught instanceof Error ? caught.message : "无法创建操作计划", "danger"); } finally { setPlanning(false); }
   };

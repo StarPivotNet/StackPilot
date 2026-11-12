@@ -156,6 +156,7 @@ function deleteTransientRouteParams(params: URLSearchParams) {
 }
 
 function deleteContextRouteParams(params: URLSearchParams) {
+  params.delete("sshHost");
   params.delete("dbFocus");
   params.delete("auditSource");
 }

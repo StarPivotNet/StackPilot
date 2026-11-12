@@ -19,6 +19,7 @@ function TopBar({
   interactionsDisabled,
   onLogout,
   permissions,
+  accountName,
 }: {
   page: PageKey;
   setPage: SetPage;
@@ -30,6 +31,7 @@ function TopBar({
   interactionsDisabled: boolean;
   onLogout: () => void;
   permissions?: Permission[];
+  accountName?: string;
 }) {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -48,7 +50,7 @@ function TopBar({
   const freshness = overview ? formatBackendDateTime(overviewCollectedAt(overview), "等待首次采集") : "等待首次采集";
   const health = overview?.cluster?.health || "采集中";
   const healthTone = !overview ? "info" : health === "健康" ? "success" : health === "警告" ? "warning" : "neutral";
-  const userName = overview?.cluster?.current || "本机节点";
+  const userName = accountName || "当前账号";
 
   const closeSearch = () => {
     setSearchOpen(false);

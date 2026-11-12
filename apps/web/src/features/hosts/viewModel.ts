@@ -89,6 +89,9 @@ function serviceStatus(status: string): HostServiceView["status"] {
 function toHostView(record: HostMonitoringRecord): HostView {
   const memory = record.memory;
   const disk = record.disk;
+  const volumes = disk?.volumes ?? [];
+  const volumeTotalBytes = volumes.reduce((total, volume) => total + volume.totalBytes, 0);
+  const volumeUsedBytes = volumes.reduce((total, volume) => total + volume.usedBytes, 0);
   const memoryUsedBytes = memory?.usedBytes ?? null;
   const backupStatus = record.backup?.status === "healthy" ? "健康" : record.backup?.status === "degraded" ? "警告" : "未知";
   return {
@@ -105,11 +108,11 @@ function toHostView(record: HostMonitoringRecord): HostView {
     status: statusOf(record),
     cpu: record.cpuPercent,
     memory: memory?.percent ?? null,
-    disk: disk?.percent ?? null,
+    disk: volumeTotalBytes > 0 ? Math.round(volumeUsedBytes / volumeTotalBytes * 100) : disk?.percent ?? null,
     memoryUsedBytes,
     memoryTotalBytes: memory?.totalBytes ?? null,
-    diskUsedBytes: disk?.usedBytes ?? null,
-    diskTotalBytes: disk?.totalBytes ?? null,
+    diskUsedBytes: volumeTotalBytes > 0 ? volumeUsedBytes : disk?.usedBytes ?? null,
+    diskTotalBytes: volumeTotalBytes > 0 ? volumeTotalBytes : disk?.totalBytes ?? null,
     version: record.version ?? "不可用",
     uptime: formatUptime(record.uptimeSeconds),
     backup: record.backup ? (record.backup.latestAt ? formatTimestamp(record.backup.latestAt) : record.backup.detail) : "不可用",

@@ -76,4 +76,17 @@ const overviewNodeFreshness = (node: OverviewNode) => node.freshness;
 const overviewNodeCollectedAt = (node: OverviewNode) => node.collectedAt;
 const overviewNodeFieldAvailable = (node: OverviewNode, field: keyof OverviewNode["availability"]) => node.availability[field];
 
-export { emptyOverviewSummary, emptyTaskPageData, healthProbeTone, overviewMetricIcons, overviewNodeCollectedAt, overviewNodeFieldAvailable, overviewNodeFreshness, reportApiError, serviceHealthLabel, serviceHealthTone, serviceTone, taskTone };
+function overviewNodeDisk(node: OverviewNode) {
+  const volumes = (node.diskVolumes ?? []).map((volume) => ({ ...volume, percent: volume.totalBytes > 0 ? Math.round(volume.usedBytes / volume.totalBytes * 1000) / 10 : 0 }));
+  const total = volumes.reduce((sum, volume) => sum + volume.totalBytes, 0);
+  const used = volumes.reduce((sum, volume) => sum + volume.usedBytes, 0);
+  return { volumes, total, used, value: total > 0 ? `${Math.round(used / total * 1000) / 10}%` : node.disk };
+}
+
+function formatOverviewBytes(bytes: number) {
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  const index = bytes > 0 ? Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)) : 0;
+  return `${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(bytes / 1024 ** index)} ${units[index]}`;
+}
+
+export { emptyOverviewSummary, emptyTaskPageData, formatOverviewBytes, healthProbeTone, overviewMetricIcons, overviewNodeCollectedAt, overviewNodeDisk, overviewNodeFieldAvailable, overviewNodeFreshness, reportApiError, serviceHealthLabel, serviceHealthTone, serviceTone, taskTone };

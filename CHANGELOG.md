@@ -2,6 +2,25 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.39 - 2026-11-12
+
+### Changed
+
+- Implemented the CloudPulse desktop and mobile layouts across existing workbenches, including one shared sidebar, readable typography, responsive tables and complete entity detail surfaces.
+- Preserved real API data, permissions, automatic collection, stable selected identities and keyboard focus while removing misleading local-only settings success states.
+- Added a frontend-only SSH management workspace with real authorized host discovery and editable local drafts; unavailable takeover, signing, download, revocation and recovery operations remain disabled.
+
+### Fixed
+
+- Kept monitoring failures and unavailable measurements distinct from collected zero values, and aggregated disk usage by volume capacity.
+- Prevented sidebar collapse, long hostnames and off-screen accessibility text from overflowing the application tracks.
+- Handled interrupted native view-transition animations without hiding actual update errors or repeating route updates.
+
+### Compatibility
+
+- Controller/Web package versions remain synchronized. Database schema 10 and Controller-Agent protocol compatibility are unchanged.
+- This commit does not enable an SSH backend, deploy services or publish release artifacts.
+
 ## 0.3.0-preview.38 - 2026-07-18
 
 ### Changed

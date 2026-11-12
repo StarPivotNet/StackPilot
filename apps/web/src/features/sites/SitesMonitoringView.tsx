@@ -1,3 +1,4 @@
+import { SiteNavigation } from "./SiteNavigation";
 import {
   Activity, CheckCircle2, CircleHelp, CircleStop, Clock3, Code2, Eye, Globe2, Info, Server, Shield, TriangleAlert,
 } from "lucide-react";
@@ -22,12 +23,18 @@ import { SiteOperationsDrawer } from "./SiteOperationsDrawer";
 
 type SiteMode = "inventory" | "running" | "runtime";
 
-function SitesMonitoringView({ page, canReadLogs, canOperate }: { page: PageKey; canReadLogs: boolean; canOperate: boolean }) {
+function SitesMonitoringView({ page, canReadLogs, canOperate, canDeploy = false }: { page: PageKey; canReadLogs: boolean; canOperate: boolean; canDeploy?: boolean }) {
   const preset = sitesPagePreset(page);
   const mode: SiteMode = page === "sites-runtime" ? "runtime" : page === "sites-running" ? "running" : "inventory";
-  const [search, setSearch] = useState(preset.search);
-  const [statusFilter, setStatusFilter] = useState(preset.status);
-  const [runtimeFilter, setRuntimeFilter] = useState(preset.runtime);
+  const [searchByPage, setSearchByPage] = useState<Record<string, string>>({});
+  const [statusByPage, setStatusByPage] = useState<Record<string, string>>({});
+  const [runtimeByPage, setRuntimeByPage] = useState<Record<string, string>>({});
+  const search = searchByPage[page] ?? preset.search;
+  const statusFilter = statusByPage[page] ?? preset.status;
+  const runtimeFilter = runtimeByPage[page] ?? preset.runtime;
+  const setSearch = (value: string) => setSearchByPage((current) => ({ ...current, [page]: value }));
+  const setStatusFilter = (value: string) => setStatusByPage((current) => ({ ...current, [page]: value }));
+  const setRuntimeFilter = (value: string) => setRuntimeByPage((current) => ({ ...current, [page]: value }));
   const [selectedRuntime, setSelectedRuntime] = useState<string | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const reconcileRows = useCallback((nextRows: SiteRuntimeView[]) => {
@@ -50,25 +57,26 @@ function SitesMonitoringView({ page, canReadLogs, canOperate }: { page: PageKey;
     ? `${Math.round(latencySamples.reduce((sum, value) => sum + value, 0) / latencySamples.length)}ms` : "暂不可用";
   const certDataAvailable = rows.some((row) => row.certDays !== null);
   const initialError = Boolean(error && !payload);
+  const count = (value: number) => payload ? payload.collectionStatus === "unavailable" ? "暂不可用" : String(value) : "等待采集";
 
   const metrics = mode === "runtime"
-    ? <><MetricTile icon={Code2} label="服务组" value={`${runtimeGroups.length}`} tone="blue" /><MetricTile icon={Globe2} label="覆盖站点" value={`${filteredRows.length}`} tone="green" /><MetricTile icon={Shield} label="证书风险" value={certDataAvailable ? `${filteredRows.filter(isSiteCertDue).length}` : "暂不可用"} tone="orange" /></>
+    ? <><MetricTile icon={Code2} label="服务组" value={count(runtimeGroups.length)} tone="blue" /><MetricTile icon={Globe2} label="覆盖站点" value={count(filteredRows.length)} tone="green" /><MetricTile icon={Shield} label="证书风险" value={certDataAvailable ? `${filteredRows.filter(isSiteCertDue).length}` : "暂不可用"} tone="orange" /></>
     : mode === "running"
-      ? <><MetricTile icon={Activity} label="已发现站点" value={`${filteredRows.length}`} tone="green" /><MetricTile icon={Clock3} label="平均延迟" value={averageLatency} tone="blue" /><MetricTile icon={Shield} label="异常站点" value={`${filteredRows.filter((row) => row.status === "告警").length}`} tone="orange" /></>
-      : <><MetricTile icon={Globe2} label="站点" value={`${rows.length}`} tone="blue" /><MetricTile icon={CheckCircle2} label="运行中" value={`${rows.filter((row) => row.status === "运行中").length}`} tone="green" /><MetricTile icon={Shield} label="证书告警" value={certDataAvailable ? `${rows.filter(isSiteCertDue).length}` : "暂不可用"} tone="orange" /></>;
+      ? <><MetricTile icon={Activity} label="已发现站点" value={count(filteredRows.length)} tone="green" /><MetricTile icon={Clock3} label="平均延迟" value={averageLatency} tone="blue" /><MetricTile icon={Shield} label="异常站点" value={count(filteredRows.filter((row) => row.status === "告警").length)} tone="orange" /></>
+      : <><MetricTile icon={Globe2} label="站点" value={count(rows.length)} tone="blue" /><MetricTile icon={CheckCircle2} label="运行中" value={count(rows.filter((row) => row.status === "运行中").length)} tone="green" /><MetricTile icon={Shield} label="证书告警" value={certDataAvailable ? `${rows.filter(isSiteCertDue).length}` : "暂不可用"} tone="orange" /></>;
   const emptyText = error ? "实时采集失败，未显示示例站点" : loading ? "正在采集站点状态" : "未发现匹配的 Nginx 站点，系统将继续自动采集";
 
-  return <ModulePageShell
+  return <ModulePageShell className="resource-cloudpulse"
     title={resolvePageMeta(page).title}
     subtitle={loading ? "正在加载已保存的站点快照" : `${preset.subtitle} · 后端采集于 ${formatBackendDateTime(payload?.collectedAt)}`}
-    hideHeading
     page={page}
-    viewContext={false}
+    viewContext={false} tabs={<SiteNavigation page={page} canDeploy={canDeploy} />}
     filters={initialError ? undefined : <><ModuleSearch value={search} placeholder="搜索域名、上游、主机或数据源" onChange={setSearch} /><FieldSelect label="状态" value={statusFilter} options={mode === "running" ? ["活跃", "运行中", "告警", "待采集"] : ["全部", "运行中", "告警", "已停止", "待采集"]} onChange={setStatusFilter} /><FieldSelect label="服务" value={runtimeFilter} options={["全部", ...uniqueSorted(rows.map((row) => row.runtime))]} onChange={setRuntimeFilter} /></>}
     metrics={initialError ? undefined : metrics}
     side={selectedGroup ? <RuntimeDetail group={selectedGroup} onClose={() => setSelectedRuntime(null)} /> : selectedSite ? <SiteOperationsDrawer site={selectedSite} onClose={() => setSelectedSiteId(null)} onChanged={() => retry(undefined, true)} canReadLogs={canReadLogs} canOperate={canOperate} /> : null}
   >
     <SitesLoadState loading={loading} error={error} payload={payload} retry={() => void retry()} showCollectionNote={mode !== "runtime"} />
+    {!initialError && mode === "runtime" && runtimeGroups.length > 0 && <section className="site-runtime-cards" aria-label="运行时分组">{runtimeGroups.map((group) => <article className="site-runtime-card" key={group.runtime}><h2><Code2 size={20} />{group.runtime}</h2><strong>{group.sites.length}<small>个站点</small></strong><StatusDot tone={runtimeGroupHealth(group).tone} text={runtimeGroupHealth(group).label} /><dl><div><dt>所属主机</dt><dd>{group.hosts || "暂不可用"}</dd></div><div><dt>平均延迟</dt><dd>{group.avgLatency}</dd></div><div><dt>证书风险</dt><dd>{group.certificateDataAvailable ? `${group.certDue} 个待检查` : "暂不可用"}</dd></div></dl><button className="ghost" type="button" onClick={() => setSelectedRuntime(group.runtime)}>查看分组详情</button></article>)}</section>}
     {!initialError && (mode === "runtime"
       ? <DataTable columns={runtimeColumns(setSelectedRuntime)} rows={runtimeGroups} emptyText={emptyText} getRowKey={(group) => group.runtime} mobileCard={(group) => <RuntimeMobileCard group={group} onOpen={setSelectedRuntime} />} />
       : <DataTable columns={siteColumns(mode, setSelectedSiteId)} rows={filteredRows} emptyText={emptyText} getRowKey={(row) => row.id} mobileCard={(row) => <SiteMobileCard row={row} mode={mode} onOpen={setSelectedSiteId} />} />)}

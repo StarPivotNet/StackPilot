@@ -41,6 +41,7 @@ function ModulePageShell({
         <div className={`page-head module-head ${hideHeading ? "module-head-actions-only" : ""}`} inert={isModalSide} aria-hidden={isModalSide ? "true" : undefined}>
           {hideHeading ? <h1 className="sr-only">{title}</h1> : (
             <div>
+              {effectiveViewContext && <p className="module-eyebrow">{effectiveViewContext.eyebrow}</p>}
               <h1>{title}</h1>
               {subtitle && <p className="page-subtitle">{subtitle}</p>}
             </div>
@@ -50,7 +51,7 @@ function ModulePageShell({
       )}
       <div className={`module-layout ${side && !sideModal ? "has-side" : ""}`}>
         <section className="module-main" inert={isModalSide} aria-hidden={isModalSide ? "true" : undefined}>
-          {effectiveViewContext && <ModuleViewContext context={effectiveViewContext} />}
+          {viewContext && <ModuleViewContext context={viewContext} />}
           {tabs}
           {filters && <div className="module-filter-line">{filters}</div>}
           {metrics && <div className="module-metrics">{metrics}</div>}

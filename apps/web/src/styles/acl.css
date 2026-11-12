@@ -1,829 +1,158 @@
-.module-page-acl-policies .module-filter-line,
-.module-page-acl-policies .module-view-context,
-.module-page-acl-policies .module-metrics article,
-.module-page-acl-policies .acl-policy-layout .panel-card,
-.module-page-acl-policies .acl-policy-layout .panel-card > header {
-  border: 0;
-  outline: 0;
-}
-
-.module-page-acl-policies .module-filter-line {
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .module-view-context {
-  min-height: 0;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .deploy-tabs {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .module-filter-line { gap: 16px; }
-.module-page-acl-policies .module-metrics { gap: 32px; }
-
-.module-page-acl-policies .module-head > div:first-child {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.module-page-acl-policies .page-subtitle { margin: 0; }
-
-.module-page-acl-policies .module-metrics article {
-  min-height: 80px;
-  padding: 12px 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .acl-policy-layout {
-  align-items: start;
-  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.6fr);
-  gap: 24px;
-}
-
-.module-page-acl-policies .policy-catalog {
-  min-width: 0;
-  align-content: start;
-  gap: 8px;
-}
-
-.module-page-acl-policies .policy-catalog > button {
-  min-width: 0;
-  min-height: 88px;
-  padding: 12px 8px;
-  border: 0;
-  border-radius: var(--radius-md);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-content: start;
-  gap: 8px 12px;
-  color: var(--text-soft);
-  background: var(--surface-soft);
-  text-align: left;
-}
-
-.module-page-acl-policies .policy-catalog > button:hover,
-.module-page-acl-policies .policy-catalog > button:focus-visible {
-  border: 0;
-  outline: 0;
-  color: var(--text);
-  background: var(--surface-hover);
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-catalog > button.active,
-.module-page-acl-policies .policy-catalog > button.active:hover,
-.module-page-acl-policies .policy-catalog > button.active:focus-visible {
-  border: 0;
-  outline: 0;
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-catalog > button:focus-visible {
-  border: 0;
-  outline: 3px solid rgb(14 165 233 / 26%);
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-catalog > button > span {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.module-page-acl-policies .policy-catalog > button b {
-  min-width: 0;
-  color: var(--text);
-  font: 650 14px/1.35 var(--font-display);
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-policies .policy-catalog > button i {
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-}
-
-.module-page-acl-policies .policy-catalog > button em {
-  align-self: start;
-  justify-self: end;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.module-page-acl-policies .policy-catalog > button small {
-  grid-column: 1 / -1;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-policies .acl-policy-detail-panel {
-  min-width: 0;
-  padding: 16px 24px 24px;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-subtle);
-}
-
-.module-page-acl-policies .acl-policy-detail-panel > header {
-  min-height: 56px;
-  padding: 0 0 16px;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .acl-policy-detail-panel > header > strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-policies .acl-policy-detail-panel > header button,
-.module-page-acl-policies .acl-policy-detail-panel > header button:is(:hover, :focus, :active) {
-  border: 0;
-  outline: 0;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .acl-policy-detail-panel > header button:focus-visible {
-  border: 0;
-  outline: 3px solid rgb(14 165 233 / 26%);
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-detail {
-  min-width: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px 16px;
-}
-
-.module-page-acl-policies .policy-detail p {
-  min-width: 0;
-  min-height: 48px;
-  padding: 8px 12px;
-  margin: 0;
-  border-radius: var(--radius-md);
-  display: grid;
-  align-content: center;
-  gap: 4px;
-  background: var(--surface-soft);
-}
-
-.module-page-acl-policies .policy-detail p span {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.module-page-acl-policies .policy-detail p b {
-  min-width: 0;
-  color: var(--text-soft);
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-policies .policy-detail .policy-detail-description {
-  grid-column: 1 / -1;
-  min-height: 32px;
-}
-
-.module-page-acl-policies .policy-role-section {
-  min-width: 0;
-  padding: 24px 0 0;
-  display: grid;
-  gap: 8px;
-}
-
-.module-page-acl-policies .policy-role-heading {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.module-page-acl-policies .policy-role-heading span {
-  color: var(--text-soft);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.module-page-acl-policies .policy-role-heading small {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.module-page-acl-policies .policy-role-list {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.module-page-acl-policies .policy-role-list button {
-  min-width: 0;
-  min-height: 48px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: var(--radius-md);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-soft);
-  background: var(--surface-soft);
-  text-align: left;
-}
-
-.module-page-acl-policies .policy-role-list button:hover,
-.module-page-acl-policies .policy-role-list button:focus-visible {
-  border: 0;
-  outline: 0;
-  color: var(--text);
-  background: var(--surface-hover);
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-role-list button.checked,
-.module-page-acl-policies .policy-role-list button.checked:hover,
-.module-page-acl-policies .policy-role-list button.checked:focus-visible {
-  border: 0;
-  outline: 0;
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-role-list button:focus-visible {
-  border: 0;
-  outline: 3px solid rgb(14 165 233 / 26%);
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
-.module-page-acl-policies .policy-role-list button span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-policies .policy-role-list button i {
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.module-page-acl-policies .policy-role-list button.checked i {
-  color: var(--primary-hover);
-}
-
-@media (max-width: 773px) {
-  .module-page-acl-policies .module-filter-line { gap: 12px; }
-  .module-page-acl-policies .module-metrics { gap: 8px; }
-  .module-page-acl-policies .acl-policy-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .module-page-acl-policies .acl-policy-detail-panel {
-    padding: 16px;
-  }
-
-  .module-page-acl-policies .acl-policy-detail-panel > header {
-    min-height: 52px;
-    padding-bottom: 12px;
-  }
-
-  .module-page-acl-policies .policy-catalog > button {
-    min-height: 64px;
-    padding-inline: 8px;
-  }
-
-  .module-page-acl-policies .policy-detail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .module-page-acl-policies .policy-detail .policy-detail-description {
-    grid-column: 1 / -1;
-  }
-
-  .module-page-acl-policies .policy-role-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .module-page-acl-policies .module-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 16px;
-  }
-
-  .module-page-acl-policies .module-metrics article {
-    min-height: 64px;
-    padding: 8px 0;
-  }
-
-  .module-page-acl-policies .module-metrics article:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .module-page-acl-policies .policy-detail {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.module-page-acl-roles .module-filter-line,
-.module-page-acl-roles .module-metrics article,
-.module-page-acl-roles .acl-role-layout .panel-card,
-.module-page-acl-roles .acl-role-layout .panel-card > header,
-.module-page-acl-roles .role-list button,
-.module-page-acl-roles .permission-grid > button,
-.module-page-acl-roles .permission-grid > button:is(:hover, :focus, :focus-visible, :focus-within, :active) {
-  border: 0;
-  outline: 0;
-}
-
-.module-page-acl-roles .module-filter-line {
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-roles {
-  padding-top: 24px;
-  padding-bottom: 40px;
-}
-
-.module-page-acl-roles .page-head {
-  min-height: 48px;
-  margin-bottom: 12px;
-  align-items: baseline;
-}
-
-.module-page-acl-roles .page-head h1 {
-  font: 700 40px/1.2 var(--font-display);
-  letter-spacing: 0;
-}
-
-:is(.module-page-acl, .module-page-acl-users, .module-page-acl-policies) .page-head h1 {
-  font: 700 40px/1.2 var(--font-display);
-  letter-spacing: 0;
-}
-
-@media (max-width: 773px) {
-  :is(.module-page-acl, .module-page-acl-users, .module-page-acl-roles, .module-page-acl-policies) .page-head h1 {
-    font: 700 40px/1.2 var(--font-display);
-  }
-}
-
-.module-page-acl-roles .page-subtitle {
-  margin-top: 0;
-}
-
-.module-page-acl-roles .deploy-tabs {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  gap: 8px;
-  background: transparent;
-  box-shadow: none;
-}
-
-.module-page-acl-roles .deploy-tabs button {
-  min-height: 32px;
-  padding-inline: 12px;
-}
-
-.module-page-acl-roles .module-metrics article {
-  min-height: 88px;
-  padding: 12px 16px;
-  background: var(--surface-soft);
-  box-shadow: none;
-}
-
-.module-page-acl-roles .acl-role-layout {
-  align-items: start;
-  grid-template-columns: minmax(240px, 0.62fr) minmax(0, 1.38fr);
-  gap: 16px;
-}
-
-.module-page-acl-roles .acl-role-layout .panel-card {
-  min-width: 0;
-  box-shadow: var(--shadow-subtle);
-}
-
-.module-page-acl-roles .acl-role-layout .panel-card > header {
-  min-height: 52px;
-  padding: 12px 16px;
-  background: var(--surface);
-  box-shadow: none;
-}
-
-.module-page-acl-roles .acl-role-layout .panel-card > header > strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-roles .acl-role-layout .panel-card > header button,
-.module-page-acl-roles .acl-role-layout .panel-card > header button:is(:hover, :focus, :focus-visible, :active) {
-  border: 0;
-  outline: 0;
-  box-shadow: none;
-}
-
-.module-page-acl-roles .role-list {
-  padding: 8px 16px 16px;
-  gap: 8px;
-}
-
-.module-page-acl-roles .role-list button {
-  min-width: 0;
-  min-height: 64px;
-  padding: 8px 12px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 4px 12px;
-  color: var(--text-soft);
-  background: var(--surface-soft);
-}
-
-.module-page-acl-roles .role-list button:hover,
-.module-page-acl-roles .role-list button:focus-visible {
-  color: var(--text);
-  background: var(--surface-hover);
-  box-shadow: var(--shadow-subtle);
-}
-
-.module-page-acl-roles .role-list button.active,
-.module-page-acl-roles .role-list button.active:hover,
-.module-page-acl-roles .role-list button.active:focus-visible {
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-  box-shadow: none;
-}
-
-.module-page-acl-roles .role-list button > strong,
-.module-page-acl-roles .role-list button > span,
-.module-page-acl-roles .role-list button > em {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-roles .role-list button > em {
-  color: var(--muted);
-  font-size: 11px;
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.module-page-acl-roles .role-list button.active > em,
-.module-page-acl-roles .role-list button.active:hover > em,
-.module-page-acl-roles .role-list button.active:focus-visible > em {
-  color: var(--primary-hover);
-}
-
-.module-page-acl-roles .role-list button > span {
-  grid-column: 1 / -1;
-  margin-top: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.module-page-acl-roles .role-list button.active > span,
-.module-page-acl-roles .role-list button.active:hover > span,
-.module-page-acl-roles .role-list button.active:focus-visible > span {
-  color: var(--primary-hover);
-}
-
-.module-page-acl-roles .permission-grid {
-  padding: 8px 16px 16px;
-  gap: 8px;
-}
-
-.module-page-acl-roles .permission-grid > button {
-  min-width: 0;
-  min-height: 68px;
-  padding: 12px;
-  color: var(--text-soft);
-  background: var(--surface-soft);
-}
-
-.module-page-acl-roles .permission-grid > button:hover,
-.module-page-acl-roles .permission-grid > button:focus-visible {
-  color: var(--text);
-  background: var(--surface-hover);
-  box-shadow: var(--shadow-subtle);
-}
-
-.module-page-acl-roles .permission-grid > button.checked,
-.module-page-acl-roles .permission-grid > button.checked:hover,
-.module-page-acl-roles .permission-grid > button.checked:focus-visible {
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-  box-shadow: none;
-}
-
-.module-page-acl-roles .permission-grid > button > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-roles .permission-copy {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.module-page-acl-roles .permission-copy b {
-  min-width: 0;
-  color: inherit;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-roles .permission-copy small {
-  min-width: 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.module-page-acl-roles .permission-grid > button.checked .permission-copy small {
-  color: var(--primary-hover);
-}
-
-.module-page-acl-roles .permission-grid > button > i {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 12px;
-  font-style: normal;
-  white-space: nowrap;
-}
-
-.module-page-acl-roles .permission-grid > button.checked > i {
-  color: var(--primary-hover);
-}
-
-.module-page-acl-roles .permission-grid > button:disabled,
-.module-page-acl-policies .policy-role-list button:disabled {
-  cursor: not-allowed;
-}
-
-.module-page-acl-roles .permission-grid > button:disabled:hover,
-.module-page-acl-policies .policy-role-list button:disabled:hover {
-  color: inherit;
-  background: var(--surface-soft);
-  box-shadow: none;
-}
-
-.module-page-acl-roles .permission-grid > button.checked:disabled:hover,
-.module-page-acl-policies .policy-role-list button.checked:disabled:hover {
-  color: var(--primary-hover);
-  background: var(--primary-soft);
-}
-
-.acl-readonly-note {
-  min-height: 48px;
-  padding: 12px 24px;
-  margin: 8px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  background: var(--surface-soft);
-  font-size: 13px;
-}
-
-.acl-readonly-note svg { flex: 0 0 auto; color: var(--primary); }
-
-.acl-policy-save-actions {
-  padding-top: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.acl-role-create-modal {
-  top: 50%;
-  right: auto;
-  left: 50%;
-  width: min(680px, calc(100vw - 32px));
-  height: min(800px, calc(100dvh - 32px));
-  border: 0;
-  border-radius: var(--radius-lg);
-  outline: 0;
-  background: var(--surface);
-  box-shadow: var(--shadow-overlay);
-  transform: translate(-50%, -50%);
-}
-
-.detail-drawer.acl-role-create-modal {
-  grid-template-rows: 72px minmax(0, 1fr) auto;
-}
-
-.acl-role-create-modal .drawer-head,
-.acl-role-create-modal .drawer-actions {
-  border: 0;
-  box-shadow: none;
-}
-
-.acl-role-create-modal .drawer-body {
-  min-height: 0;
-  padding: 16px 24px 24px;
-  overflow-y: auto;
-}
-.acl-role-create-modal .drawer-actions { padding: 12px 24px 24px; }
-.acl-role-create-modal-scrim { background: var(--overlay); backdrop-filter: none; }
-
-.acl-role-create-permissions {
-  max-height: 320px;
-  padding: 8px;
-  border-radius: var(--radius-md);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  overflow-y: auto;
-  background: var(--surface-soft);
-}
-
-.acl-role-create-permissions .identity-checkbox {
-  min-height: 48px;
-  padding: 8px;
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.acl-role-create-permissions .identity-checkbox small {
-  font-family: var(--font-mono);
-  overflow-wrap: anywhere;
-}
-
-.acl-role-save-confirm,
-.acl-role-save-confirm:is(:hover, :focus, :focus-visible, :focus-within, :active) {
-  border: 0;
-  outline: 0;
-  box-shadow: var(--shadow-overlay);
-}
-
-.acl-role-save-confirm-scrim { backdrop-filter: none; }
-
-.module-page-acl-roles .panel-card > header {
-  padding-inline: 24px;
-}
-
-.module-page-acl-roles .panel-card > header .panel-link {
-  color: var(--primary-hover);
-}
-
-@media (max-width: 773px) {
-  .module-page-acl-roles {
-    padding-top: 16px;
-    padding-bottom: 32px;
-  }
-
-  .module-page-acl-roles .page-head {
-    margin-bottom: 8px;
-  }
-
-  .module-page-acl-roles .acl-role-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .module-page-acl-roles .acl-role-layout .panel-card > header {
-    padding-inline: 16px;
-  }
-
-  .module-page-acl-roles .permission-grid > button {
-    min-height: 64px;
-  }
-
-  .acl-readonly-note { padding-inline: 16px; }
-
-  .detail-drawer.acl-role-create-modal {
-    inset: 8px;
-    width: calc(100vw - 16px);
-    height: calc(100dvh - 16px);
-    transform: none;
-  }
-
-  .acl-role-create-modal .drawer-head,
-  .acl-role-create-modal .drawer-body { padding: 16px; }
-  .acl-role-create-modal .drawer-actions { padding: 12px 16px 16px; }
-  .acl-role-create-permissions { grid-template-columns: minmax(0, 1fr); }
-}
-
-/* Match the Audit workbench: unframed controls, discrete elevated surfaces. */
-:is(.module-page-acl, .module-page-acl-users, .module-page-acl-roles, .module-page-acl-policies) {
-  min-width: 0;
-}
-
-:is(.module-page-acl, .module-page-acl-users, .module-page-acl-roles, .module-page-acl-policies) .module-filter-line {
-  padding: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-:is(.module-page-acl-roles, .module-page-acl-policies) .module-metrics article,
-:is(.module-page-acl, .module-page-acl-users) .identity-user-row,
-.module-page-acl-roles .acl-role-layout .panel-card,
-.module-page-acl-policies .acl-policy-detail-panel {
-  border: 0;
-  outline: 0;
-  box-shadow: var(--shadow-subtle);
-}
-
-:is(.module-page-acl-roles, .module-page-acl-policies) .module-metrics article {
-  min-height: 88px;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-
-:is(.module-page-acl-roles, .module-page-acl-policies) .module-metrics article:is(:hover, :focus, :focus-within),
-:is(.module-page-acl, .module-page-acl-users) .identity-user-row:is(:hover, :focus, :focus-within),
-.module-page-acl-roles .acl-role-layout .panel-card:is(:hover, :focus, :focus-within),
-.module-page-acl-policies .acl-policy-detail-panel:is(:hover, :focus, :focus-within) {
-  border: 0;
-  outline: 0;
-}
-
-:is(.module-page-acl, .module-page-acl-users, .module-page-acl-roles, .module-page-acl-policies)
-  :is(.role-list button, .permission-grid > button, .policy-catalog > button, .policy-role-list > button),
-:is(.module-page-acl, .module-page-acl-users, .module-page-acl-roles, .module-page-acl-policies)
-  :is(.role-list button, .permission-grid > button, .policy-catalog > button, .policy-role-list > button):is(:hover, :focus-visible, :active) {
-  border: 0;
-}
-
-.module-page-acl-policies .acl-policy-layout {
-  grid-template-columns: minmax(400px, 0.9fr) minmax(0, 1.1fr);
-}
-
-.module-page-acl-policies .policy-catalog > button b,
-.module-page-acl-policies .policy-catalog > button small,
-.module-page-acl-policies .policy-catalog > button i {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 960px) {
-  .module-page-acl-policies .acl-policy-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 773px) {
-  :is(.module-page-acl, .module-page-acl-users) .identity-summary,
-  :is(.module-page-acl-roles, .module-page-acl-policies) .module-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  :is(.module-page-acl, .module-page-acl-users) .identity-summary > div {
-    min-height: 72px;
-    padding: 8px;
-    grid-template-columns: 20px minmax(0, 1fr);
-    gap: 0 8px;
-  }
-
-  :is(.module-page-acl-roles, .module-page-acl-policies) .module-metrics article {
-    min-height: 72px;
-    padding: 8px;
-    grid-template-columns: 24px minmax(0, 1fr);
-    gap: 0 8px;
-  }
-
-  :is(.module-page-acl-roles, .module-page-acl-policies) .module-metrics article > svg {
-    width: 24px;
-    height: 24px;
-    padding: 4px;
-  }
+/* CloudPulse security surfaces. Shared here only by security module pages. */
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page {
+  min-width: 0; color: var(--text); font-family: var(--font-body);
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-head {
+  min-width: 0; min-height: 0; margin: 0 0 48px; align-items: flex-end; gap: 24px;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-head h1 {
+  font: 700 40px/1.2 var(--font-display); letter-spacing: .015em; margin: 0;
+}
+.module-page.module-page-firewall-deny > h1.sr-only {
+  position: static; width: auto; height: auto; padding: 0; margin: 0 0 48px;
+  overflow: visible; clip: auto; white-space: normal; font: 700 40px/1.2 var(--font-display); letter-spacing: .015em;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .page-subtitle {
+  margin: 12px 0 0; max-width: 760px; font: 400 16px/1.6 var(--font-body); color: var(--muted);
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-layout { min-width: 0; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-main { min-width: 0; gap: 32px; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-filter-line {
+  padding: 0; gap: 12px; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-search { min-width: 0; max-width: 100%; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-metrics { gap: 24px; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-metrics article {
+  min-width: 0; min-height: 128px; padding: 24px; border: 0; border-radius: 12px;
+  background: var(--surface); box-shadow: none; display: grid; grid-template-columns: 24px minmax(0,1fr); grid-template-rows: auto auto; align-content: start; align-items: center; gap: 12px;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-metrics article > strong {
+  font: 600 28px/1.3 var(--font-display); letter-spacing: .01em; overflow-wrap: anywhere; grid-column: 1 / -1; grid-row: 2;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-metrics article > span { font: 400 14px/1.5 var(--font-body); grid-column: 2; grid-row: 1; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-metrics article > svg { padding: 0; background: transparent; border-radius: 0; width: 24px; height: 24px; grid-column: 1; grid-row: 1; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table-wrap {
+  min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table {
+  width: 100%; min-width: 0; table-layout: fixed; border-collapse: separate; border-spacing: 0 8px;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table th {
+  padding: 0 16px 8px; border: 0; font: 500 12px/1.4 var(--font-body); color: var(--muted); background: transparent;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table td {
+  padding: 16px; border: 0; font: 400 14px/1.5 var(--font-body); background: var(--surface);
+  overflow: hidden; text-overflow: ellipsis; vertical-align: middle; height: 72px;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table td:first-child { border-radius: 12px 0 0 12px; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table td:last-child { border-radius: 0 12px 12px 0; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-table tbody tr:hover td { background: var(--surface-hover); }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-card-row {
+  min-width: 0; padding: 24px; border: 0; border-radius: 12px; background: var(--surface); box-shadow: none;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-card-title,
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-row-link,
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-row-link b { min-width: 0; max-width: 100%; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-card-code,
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .module-card-meta em { white-space: normal; overflow-wrap: anywhere; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .table-actions { gap: 8px; }
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .table-actions button {
+  height: 34px; padding: 8px; border: 0; border-radius: 8px; color: var(--primary); background: transparent; box-shadow: none;
+}
+:is(.cloudpulse-security, .module-page-firewall-deny).module-page .table-actions button:hover { background: var(--primary-soft); }
+.security-module-tabs,
+.cloudpulse-security.module-page .deploy-tabs {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 0; border: 0; outline: 0;
+  border-radius: 0; background: transparent; box-shadow: none;
+}
+.security-module-tabs button,
+.cloudpulse-security.module-page .deploy-tabs button {
+  min-height: 40px; padding: 8px 16px; border: 0; border-radius: 8px; outline: 0;
+  font: 400 14px/1.5 var(--font-body); color: var(--muted); background: transparent; box-shadow: none;
+}
+.security-module-tabs button[aria-current="page"],
+.cloudpulse-security.module-page .deploy-tabs button.active { color: var(--primary); background: var(--primary-soft); }
+.security-module-tabs button:hover,
+.security-module-tabs button:focus-visible,
+.cloudpulse-security.module-page .deploy-tabs button:hover,
+.cloudpulse-security.module-page .deploy-tabs button:focus-visible { color: var(--primary); background: var(--primary-soft); }
+.cloudpulse-security.module-page :is(.acl-role-layout, .acl-policy-layout) {
+  display: grid; grid-template-columns: minmax(240px, .7fr) minmax(0, 1.8fr); gap: 24px; min-width: 0; align-items: start;
+}
+.cloudpulse-security.module-page .acl-policy-layout { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr); }
+.cloudpulse-security.module-page :is(.acl-role-layout, .acl-policy-layout) .panel-card {
+  min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: none;
+}
+.cloudpulse-security.module-page :is(.acl-role-layout, .acl-policy-layout) .panel-card > header {
+  min-height: 0; padding: 0 0 24px; border: 0; gap: 16px; background: transparent;
+}
+.cloudpulse-security.module-page :is(.acl-role-layout, .acl-policy-layout) .panel-card > header > strong {
+  min-width: 0; font: 600 28px/1.3 var(--font-display); letter-spacing: .01em; overflow-wrap: anywhere;
+}
+.cloudpulse-security.module-page .role-list { display: grid; gap: 8px; padding: 0; }
+.cloudpulse-security.module-page .role-list button {
+  display: grid; gap: 8px; min-width: 0; padding: 16px; border: 0; border-radius: 8px; color: var(--text-soft); background: transparent; text-align: left; box-shadow: none;
+}
+.cloudpulse-security.module-page .role-list button.active,
+.cloudpulse-security.module-page .role-list button:is(:hover, :focus-visible) { border: 0; outline: 0; background: var(--primary-soft); color: var(--primary); }
+.cloudpulse-security.module-page .role-list button strong { font: 500 14px/1.5 var(--font-body); }
+.cloudpulse-security.module-page .role-list button :is(span, em) { font: 400 12px/1.4 var(--font-body); color: var(--muted); overflow-wrap: anywhere; }
+.cloudpulse-security.module-page .permission-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 0; }
+.cloudpulse-security.module-page .permission-grid > button {
+  display: flex; align-items: start; justify-content: space-between; gap: 16px; min-width: 0; min-height: 96px; padding: 16px;
+  border: 0; border-radius: 8px; background: var(--surface-soft); text-align: left; box-shadow: none;
+}
+.cloudpulse-security.module-page .permission-grid > button.checked { background: var(--primary-soft); }
+.cloudpulse-security.module-page .permission-grid > button:disabled { opacity: 1; cursor: default; }
+.cloudpulse-security.module-page .permission-copy { min-width: 0; display: grid; gap: 8px; }
+.cloudpulse-security.module-page .permission-copy b { font: 500 14px/1.5 var(--font-body); }
+.cloudpulse-security.module-page .permission-copy small { font: 400 12px/1.4 var(--font-body); color: var(--muted); overflow-wrap: anywhere; }
+.cloudpulse-security.module-page .permission-grid i { display: flex; align-items: center; gap: 4px; flex: none; color: var(--primary); font: 500 12px/1.4 var(--font-body); }
+.cloudpulse-security.module-page .acl-readonly-note { display: flex; align-items: start; gap: 12px; padding: 0 0 24px; margin: 0; font-size: 14px; color: var(--muted); background: transparent; }
+.cloudpulse-security.module-page .policy-catalog { display: grid; gap: 12px; min-width: 0; }
+.cloudpulse-security.module-page .policy-catalog > button {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 16px; min-width: 0;
+  border: 0; border-radius: 8px; color: var(--text); background: var(--surface); text-align: left; box-shadow: none;
+}
+.cloudpulse-security.module-page .policy-catalog > button.active { background: var(--primary-soft); }
+.cloudpulse-security.module-page .policy-catalog :is(b, i, small, em) { font-size: 14px; font-style: normal; overflow-wrap: anywhere; }
+.cloudpulse-security.module-page .policy-catalog small { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.cloudpulse-security.module-page .policy-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 0; }
+.cloudpulse-security.module-page .policy-detail p { display: grid; gap: 8px; min-width: 0; padding: 0; margin: 0; background: transparent; }
+.cloudpulse-security.module-page .policy-detail-description { grid-column: 1 / -1; }
+.cloudpulse-security.module-page .policy-detail p span { color: var(--muted); font-size: 12px; }
+.cloudpulse-security.module-page .policy-detail p b { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.cloudpulse-security.module-page .policy-role-section { padding-top: 32px; display: grid; gap: 16px; }
+.cloudpulse-security.module-page .policy-role-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 14px; }
+.cloudpulse-security.module-page .policy-role-heading small { color: var(--muted); font-size: 12px; }
+.cloudpulse-security.module-page .policy-role-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cloudpulse-security.module-page .policy-role-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 16px; border: 0; border-radius: 8px; background: var(--surface-soft); text-align: left; }
+.cloudpulse-security.module-page .policy-role-list button.checked { background: var(--primary-soft); color: var(--primary); }
+.cloudpulse-security.module-page .policy-role-list button span { overflow-wrap: anywhere; }
+.cloudpulse-security.module-page .policy-role-list i { font-size: 12px; font-style: normal; flex: none; }
+.cloudpulse-security.module-page .policy-role-list button:disabled { opacity: 1; cursor: default; }
+.acl-policy-save-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.acl-role-create-modal { width: min(560px, 100vw); border: 0; border-radius: 0; background: var(--surface); box-shadow: var(--shadow-overlay); }
+.acl-role-create-modal :is(.drawer-head,.drawer-actions) { padding: 24px; border: 0; }
+.acl-role-create-modal .drawer-body { padding: 0 24px 24px; }
+.acl-role-create-permissions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; max-height: 320px; overflow: auto; }
+.acl-role-create-permissions .identity-checkbox { min-width: 0; display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 8px 12px; }
+.acl-role-create-permissions small { grid-column: 2; overflow-wrap: anywhere; font: 400 12px/1.4 var(--font-mono); color: var(--muted); }
+.acl-role-save-confirm { border: 0; border-radius: 12px; box-shadow: var(--shadow-overlay); }
+@media(max-width: 960px) {
+  .cloudpulse-security.module-page :is(.acl-role-layout,.acl-policy-layout) { grid-template-columns: minmax(0,1fr); }
+  .cloudpulse-security.module-page .permission-grid { grid-template-columns: minmax(0,1fr); }
+}
+@media(max-width: 773px) {
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-head { margin-bottom: 32px; align-items: flex-start; flex-wrap: wrap; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-main { gap: 32px; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-metrics article { min-height: 128px; padding: 16px; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-metrics article:last-child { grid-column: 1 / -1; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-card-row { padding: 24px; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-row-link b { white-space: normal; overflow-wrap: anywhere; }
+  :is(.cloudpulse-security,.module-page-firewall-deny).module-page .module-filter-line > * { flex: 1 1 100%; max-width: 100%; }
+  .cloudpulse-security.module-page :is(.acl-role-layout,.acl-policy-layout) .panel-card { padding: 24px; }
+  .cloudpulse-security.module-page .policy-role-list { grid-template-columns: minmax(0,1fr); }
+  .acl-role-create-permissions { grid-template-columns: minmax(0,1fr); }
 }

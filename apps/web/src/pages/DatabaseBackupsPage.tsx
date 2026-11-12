@@ -1,3 +1,4 @@
+import { ResourceNavigation } from "../features/hosts/ResourceNavigation";
 import { ArchiveRestore, CalendarClock, CircleAlert, Clock3, Download, HardDrive, Play, Plus, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { BusinessDatabaseBackupPlan, DatabaseOperationPlan, DatabaseRestorePoint, Permission } from "@stackpilot/contracts";
@@ -31,8 +32,8 @@ function DatabaseBackupsPage({ page, notify, permissions = [] }: { page: PageKey
   const toggle = async (plan: BusinessDatabaseBackupPlan) => { setBusyId(plan.id); try { await updateBackupPlan(plan.id, { enabled: !plan.enabled, version: plan.version }); notify(plan.enabled ? "备份计划已停用" : "备份计划已启用", "success"); await refresh(); } catch (caught) { notify(caught instanceof Error ? caught.message : "备份计划更新失败", "danger"); } finally { setBusyId(null); } };
   const prepareRestore = async (point: DatabaseRestorePoint) => { setBusyId(point.id); try { setRestorePlan((await createDatabaseOperationPlan({ kind: "restore", instanceId: point.instanceId, restorePointId: point.id })).plan); } catch (caught) { notify(caught instanceof Error ? caught.message : "无法创建恢复计划", "danger"); } finally { setBusyId(null); } };
   const exportCsv = () => downloadCsv("database-restore-points.csv", [["实例", "创建时间", "大小", "SHA-256", "数据库版本", "校验时间"], ...filteredPoints.map((point) => [instanceById.get(point.instanceId)?.name ?? point.instanceId, point.createdAt, String(point.sizeBytes), point.checksum, point.databaseVersion, point.verifiedAt ?? ""])]);
-  return <><ModulePageShell title={resolvePageMeta(page).title} subtitle="业务数据库的本地逻辑备份计划、任务与恢复点" hideHeading page={page} className="module-page-databases-backups"
-    viewContext={false}
+  return <><ModulePageShell title={resolvePageMeta(page).title} subtitle="业务数据库的本地逻辑备份计划、任务与恢复点" page={page} className="resource-cloudpulse module-page-databases-backups"
+    viewContext={false} tabs={<ResourceNavigation module="databases" page={page} />}
     actions={<><button className="ghost" type="button" disabled={!filteredPoints.length} onClick={exportCsv}><Download size={15} /> 导出</button>{permissions.includes("databases:backup") && <button className="primary" type="button" disabled={!data?.instances.length} onClick={() => setCreateOpen(true)}><Plus size={15} /> 新建备份计划</button>}</>}
     filters={<ModuleSearch value={search} placeholder="搜索实例或校验和" onChange={setSearch} />}
     metrics={<><MetricTile icon={CalendarClock} label="备份计划" value={data ? `${plans.length}` : "暂不可用"} tone="blue" /><MetricTile icon={Clock3} label="执行中任务" value={data ? `${jobs.filter((job) => job.status === "queued" || job.status === "running").length}` : "暂不可用"} tone="orange" /><MetricTile icon={ShieldCheck} label="已验证恢复点" value={data ? `${points.filter((point) => point.verifiedAt).length}` : "暂不可用"} tone="green" /><MetricTile icon={HardDrive} label="恢复点容量" value={data ? formatBytes(points.reduce((sum, point) => sum + point.sizeBytes, 0)) : "暂不可用"} tone="purple" /></>}>

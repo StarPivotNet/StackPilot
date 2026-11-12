@@ -18,13 +18,13 @@ describe("terminal sessions page", () => {
 
     await user.click(await screen.findByRole("button", { name: "查看 real-agent-01 目标详情" }));
 
-    const drawer = screen.getByRole("dialog", { name: "stackpilot-agent@real-agent-01" });
+    const drawer = screen.getByRole("dialog", { name: "real-agent-01 · Agent 详情" });
     expect(drawer.parentElement).toBe(document.body);
     expect(drawer).toHaveClass("terminal-session-drawer");
     expect(container.querySelector(".module-layout")).not.toHaveClass("has-side");
     expect(within(drawer).getByText("Agent 已连接")).toBeInTheDocument();
     expect(within(drawer).getAllByText("198.18.0.10")).toHaveLength(2);
-    expect(within(drawer).getByText("受控任务目录")).toBeInTheDocument();
+    expect(within(drawer).getByText("当前目录").parentElement).toHaveTextContent("未提供");
   });
 
   it("does not expose fake connect or disconnect controls", async () => {
@@ -33,7 +33,7 @@ describe("terminal sessions page", () => {
 
     await user.click(await screen.findByRole("button", { name: "查看 real-agent-01 目标详情" }));
 
-    const drawer = screen.getByRole("dialog", { name: "stackpilot-agent@real-agent-01" });
+    const drawer = screen.getByRole("dialog", { name: "real-agent-01 · Agent 详情" });
     expect(within(drawer).queryByRole("button", { name: /打开会话|关闭会话/ })).not.toBeInTheDocument();
   });
 

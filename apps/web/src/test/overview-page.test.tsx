@@ -13,17 +13,17 @@ describe("overview page layout", () => {
     vi.mocked(fetchOverview).mockReset();
   });
 
-  it("removes the standalone freshness header without removing the page heading", () => {
+  it("shows the designed heading and navigation without inventing unavailable metrics", () => {
     vi.mocked(fetchOverview).mockReturnValue(new Promise(() => undefined));
 
     const { container } = render(<OverviewPage setPage={vi.fn()} notify={vi.fn()} />);
     const heading = screen.getByRole("heading", { name: "工作台" });
     const page = heading.closest(".overview-page");
 
-    expect(heading).toHaveClass("sr-only");
-    expect(container.querySelector(".overview-page-head")).not.toBeInTheDocument();
-    expect(container.querySelector(".overview-freshness")).not.toBeInTheDocument();
-    expect(page?.children[0]).toBe(heading);
-    expect(page?.children[1]).toHaveClass("workbench-hero");
+    expect(heading).not.toHaveClass("sr-only");
+    expect(page).toContainElement(screen.getByRole("navigation", { name: "总览页面" }));
+    expect(screen.getByRole("status")).toHaveTextContent("正在采集工作台数据");
+    expect(container.querySelectorAll(".metric-card")).toHaveLength(0);
+    expect(container.querySelector(".progress-score")).not.toBeInTheDocument();
   });
 });

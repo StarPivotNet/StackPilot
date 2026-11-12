@@ -15,13 +15,13 @@ function service(overrides: Partial<SystemdServicesPayload["services"][number]> 
 describe("systemd logs page", () => {
   beforeEach(() => { vi.mocked(fetchSystemdServices).mockReset(); });
 
-  it("removes the visible heading and summary while retaining freshness", async () => {
+  it("shows the CloudPulse heading while retaining freshness", async () => {
     vi.mocked(fetchSystemdServices).mockResolvedValue(payload([service()]));
     const { container } = render(<SystemdPage page="systemd-logs" notify={vi.fn()} />);
     await screen.findByRole("log", { name: "nginx.service journal 摘要" });
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "服务日志" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "服务日志" })).not.toHaveClass("sr-only");
     expect(screen.getAllByText(/采集时间/).length).toBeGreaterThan(0);
   });
 

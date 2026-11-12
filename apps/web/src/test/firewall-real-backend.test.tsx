@@ -15,11 +15,11 @@ describe("firewall real backend", () => {
   it.each([
     ["firewall", "防火墙"],
     ["firewall-rules", "规则列表"],
-  ])("removes the visible heading and context on %s", async (page, title) => {
+  ])("renders the design heading without redundant context on %s", async (page, title) => {
     const { container } = render(<FirewallPage page={page} notify={vi.fn()} permissions={["firewall:read"]} />);
     await screen.findAllByText("HTTPS 公网访问");
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
-    expect(container.querySelector(".module-head h1:not(.sr-only)")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
+    expect(container.querySelector(".module-head h1:not(.sr-only)")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
   });
   it("loads UFW rules and shows backend freshness", async () => {

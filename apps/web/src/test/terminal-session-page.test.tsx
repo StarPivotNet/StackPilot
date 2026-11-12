@@ -15,12 +15,12 @@ describe("terminal session page", () => {
   it.each([
     ["terminal", "终端"],
     ["terminal-sessions", "会话列表"],
-  ] as const)("removes the visible heading and summary from %s", async (page, title) => {
+  ] as const)("shows the CloudPulse heading and navigation on %s", async (page, title) => {
     const { container } = render(<TerminalPage page={page} notify={vi.fn()} />);
     await screen.findByText("real-agent-01");
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(screen.getByText(/后端更新于/)).toBeInTheDocument();
   });
 
@@ -30,14 +30,14 @@ describe("terminal session page", () => {
 
     await user.click(await screen.findByRole("button", { name: "详情" }));
 
-    const drawer = screen.getByRole("dialog", { name: "stackpilot-agent@real-agent-01" });
+    const drawer = screen.getByRole("dialog", { name: "real-agent-01 · Agent 详情" });
     expect(drawer.parentElement).toBe(document.body);
     expect(drawer).toHaveClass("terminal-session-drawer");
     expect(within(drawer).getAllByText("198.18.0.10")).toHaveLength(2);
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.getByRole("dialog", { name: "stackpilot-agent@real-agent-01" })).toHaveAttribute("data-closing", "true");
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "stackpilot-agent@real-agent-01" })).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog", { name: "real-agent-01 · Agent 详情" })).toHaveAttribute("data-closing", "true");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "real-agent-01 · Agent 详情" })).not.toBeInTheDocument());
   });
 
   it("reauthenticates before running an allowed read-only command", async () => {

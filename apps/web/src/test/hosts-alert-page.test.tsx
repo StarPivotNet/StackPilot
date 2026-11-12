@@ -25,10 +25,10 @@ describe("hosts alert page", () => {
   it("uses backend freshness and exposes offline state without manual collection actions", async () => {
     const { container } = render(<HostsPage page="hosts-alert" notify={vi.fn()} />);
     expect(await screen.findByText(`采集于 ${formatTimestamp("2026-07-12T04:30:02.000Z")}`)).toBeInTheDocument();
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(screen.queryByText("告警处置队列")).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("搜索主机名、IP、服务或版本")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: /环境|健康/ })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("搜索主机名、IP、服务或版本")).toBeInTheDocument();
+    expect(screen.getAllByRole("combobox")).toHaveLength(2);
     expect(screen.getByText("待处理")).toBeInTheDocument();
     expect(screen.getByText("状态摘要")).toBeInTheDocument();
     expect(screen.getAllByText("离线").length).toBeGreaterThan(0);

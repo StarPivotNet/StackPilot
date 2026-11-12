@@ -32,10 +32,10 @@ describe("real deployment page", () => {
     ["deploy", "部署"],
     ["deploy-prod", "生产发布"],
     ["deploy-staging", "预发环境"],
-  ])("removes the visible heading and preserves freshness on %s", async (page, title) => {
+  ])("shows the CloudPulse heading and preserves freshness on %s", async (page, title) => {
     const { container } = render(<DeployPage page={page} permissions={["sites:read"]} />);
     await screen.findByText(/后端采集于/);
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
     expect(container.querySelector(".module-freshness-note")).toHaveTextContent("后端采集于");
   });
@@ -52,9 +52,21 @@ describe("real deployment page", () => {
     expect(within(dialog).getByText("https://github.com/example/stackpilot.git")).toBeInTheDocument();
   });
 
-  it("treats the default deploy route as the production view", async () => {
+  it("shows all environments on the parent deployment route", async () => {
     render(<DeployPage page="deploy" permissions={["sites:read"]} />);
-    expect(await screen.findByRole("button", { name: "生产" })).toHaveClass("active");
+    expect(await screen.findByRole("button", { name: "全部" })).toHaveClass("active");
+  });
+
+  it("searches real records across environments on the parent route", async () => {
+    const staging = { ...payload.deployments[0]!, id: "77777777-7777-4777-8777-777777777777", planId: "88888888-8888-4888-8888-888888888888", environment: "staging" as const, domains: ["staging.example.com"] };
+    vi.mocked(fetchDeployments).mockResolvedValueOnce({ ...payload, deployments: [...payload.deployments, staging] });
+    render(<DeployPage page="deploy" permissions={["sites:read"]} />);
+    const table = await screen.findByRole("table");
+    expect(await within(table).findByText("stackpilot.example.com")).toBeInTheDocument();
+    expect(within(table).getByText("staging.example.com")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("搜索项目、节点、版本或操作人"), { target: { value: "staging.example.com" } });
+    expect(within(table).queryByText("stackpilot.example.com")).not.toBeInTheDocument();
+    expect(within(table).getByText("staging.example.com")).toBeInTheDocument();
   });
 
   it("synchronizes the environment filter when the route changes", async () => {

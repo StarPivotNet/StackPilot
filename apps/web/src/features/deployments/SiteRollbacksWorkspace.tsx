@@ -15,6 +15,7 @@ import { RollbackDetailDrawer } from "./RollbackDetailDrawer";
 import { matchesRollbackFilter } from "./rollbackModel";
 import { RollbackTable } from "./RollbackTable";
 import { useSiteRollbacks } from "./useSiteRollbacks";
+import { DeploymentTabs } from "./DeploymentTabs";
 
 const filters = ["全部", "可回滚", "执行中", "成功", "失败"];
 type PendingRollback = { row: SiteRollbackRecord; idempotencyKey: string };
@@ -70,7 +71,7 @@ function SiteRollbacksWorkspace({ notify, permissions }: { notify: Notify; permi
   };
 
   if (!canRead) {
-    return <ModulePageShell title={resolvePageMeta("deploy-rollbacks").title} page="deploy-rollbacks" hideHeading viewContext={false}>
+    return <ModulePageShell title={resolvePageMeta("deploy-rollbacks").title} page="deploy-rollbacks" viewContext={false} tabs={<DeploymentTabs page="deploy-rollbacks" />}>
       <div className="overview-error-state" role="alert"><ShieldAlert size={18} /><span>当前账号没有站点读取权限</span></div>
     </ModulePageShell>;
   }
@@ -84,10 +85,10 @@ function SiteRollbacksWorkspace({ notify, permissions }: { notify: Notify; permi
   return <>
     <ModulePageShell
       title={resolvePageMeta("deploy-rollbacks").title}
-      subtitle={loading ? "正在加载受管站点历史 Release" : `受管站点历史 Release · 采集于 ${formatBackendDateTime(collectedAt)}`}
+      subtitle="查看受管站点的历史版本、回滚资格及实际执行状态。"
       page="deploy-rollbacks"
-      hideHeading
       viewContext={false}
+      tabs={<DeploymentTabs page="deploy-rollbacks" />}
       filters={<nav className="deploy-tabs" aria-label="回滚状态筛选">{filters.map((item) => <button key={item} className={filter === item ? "active" : ""} aria-pressed={filter === item} type="button" onClick={() => setFilter(item)}>{item}</button>)}</nav>}
       metrics={<><MetricTile icon={RotateCcw} label="可回滚" value={`${rows.filter((row) => row.status === "available").length}`} tone="blue" /><MetricTile icon={Activity} label="执行中" value={`${activeCount}`} tone="orange" /><MetricTile icon={CheckCircle2} label="已回滚" value={`${succeededCount}`} tone="green" /></>}
     >

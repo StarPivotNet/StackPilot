@@ -5,12 +5,13 @@ import { resolvePageMeta } from "../app/navigation";
 import { deployPagePreset } from "../app/pagePresets";
 import { pushPageRoute } from "../app/routing";
 import { ModulePageShell } from "../components/layout/ModulePageShell";
-import { MetricTile } from "../components/ui/Cards";
+import { MetricTile, ModuleSearch } from "../components/ui/Cards";
 import { DataTable } from "../components/ui/DataTable";
 import { DetailDrawer } from "../components/ui/DetailDrawer";
 import { deploymentApp, deploymentEnvironmentLabel, deploymentStageLabel, deploymentStatusLabel, deploymentStatusTone, deploymentVersion } from "../features/deployments/model";
 import { SiteRollbacksWorkspace } from "../features/deployments/SiteRollbacksWorkspace";
 import { useDeployments } from "../features/deployments/useDeployments";
+import { DeploymentTabs } from "../features/deployments/DeploymentTabs";
 import type { Notify, PageKey } from "../types/app";
 import { formatBackendDateTime } from "../utils/time";
 
@@ -21,25 +22,27 @@ function DeploymentsWorkspace({ page, permissions }: { page: PageKey; permission
   const canRead = permissions.includes("sites:read");
   const canDeploy = permissions.includes("sites:deploy");
   const preset = deployPagePreset(page);
-  const initialEnvironment: EnvironmentFilter = page === "deploy-staging" ? "staging" : "production";
+  const initialEnvironment: EnvironmentFilter = page === "deploy-staging" ? "staging" : page === "deploy-prod" ? "production" : "all";
   const [environment, setEnvironment] = useState<EnvironmentFilter>(initialEnvironment);
+  const [search, setSearch] = useState("");
   const [selectedDeploymentId, setSelectedDeploymentId] = useState<string | null>(null);
   const { data, loading, error, backgroundError, retry } = useDeployments(canRead);
   const deployments = useMemo(() => data?.deployments ?? [], [data]);
-  const filteredDeployments = deployments.filter((row) => environment === "all" || row.environment === environment);
+  const query = search.trim().toLowerCase();
+  const filteredDeployments = deployments.filter((row) => (environment === "all" || row.environment === environment) && (!query || `${deploymentApp(row)} ${row.nodeId} ${deploymentVersion(row)} ${row.repositoryRef} ${row.operator ?? ""}`.toLowerCase().includes(query)));
   const selectedDeployment = selectedDeploymentId ? deployments.find((row) => row.planId === selectedDeploymentId) ?? null : null;
 
   useEffect(() => { if (selectedDeploymentId && data && !selectedDeployment) queueMicrotask(() => setSelectedDeploymentId(null)); }, [data, selectedDeployment, selectedDeploymentId]);
   useEffect(() => { queueMicrotask(() => setEnvironment(initialEnvironment)); }, [initialEnvironment]);
 
-  if (!canRead) return <section className="module-page module-page-deploy-prod"><h1 className="sr-only">部署</h1><div className="overview-error-state" role="alert"><CircleAlert size={18} /><span>当前账号没有站点读取权限</span></div></section>;
+  if (!canRead) return <ModulePageShell title={resolvePageMeta(page).title} page={page} viewContext={false} tabs={<DeploymentTabs page={page} />}><div className="overview-error-state" role="alert"><CircleAlert size={18} /><span>当前账号没有站点读取权限</span></div></ModulePageShell>;
   const freshness = backgroundError ? `后台刷新失败，保留上次数据：${backgroundError}` : `后端采集于 ${formatBackendDateTime(data?.collectedAt)}`;
-  const envOptions: EnvironmentFilter[] = [...environmentValues];
+  const envOptions: EnvironmentFilter[] = ["all", ...environmentValues];
 
-  return <><ModulePageShell title={resolvePageMeta(page).title} subtitle={`${preset.subtitle} · ${freshness}`} page={page} hideHeading viewContext={false}
+  return <><ModulePageShell title={resolvePageMeta(page).title} subtitle={page === "deploy" ? "查看所有环境的预检、发布进度和执行结果。" : preset.subtitle} page={page} viewContext={false} tabs={<DeploymentTabs page={page} />}
     actions={canDeploy ? <button className="primary" type="button" onClick={() => pushPageRoute("sites-create")}><CloudUpload size={15} /> 创建部署计划</button> : undefined}
-    filters={<div className="deploy-tabs" aria-label="部署环境">{envOptions.map((item) => <button key={item} className={item === environment ? "active" : ""} type="button" onClick={() => setEnvironment(item)}>{environmentLabel(item)}</button>)}</div>}
-    metrics={<><MetricTile icon={CloudUpload} label="发布任务" value={`${filteredDeployments.length}`} tone="blue" /><MetricTile icon={Activity} label="进行中" value={`${filteredDeployments.filter((row) => ["queued", "preparing", "deploying"].includes(row.status)).length}`} tone="orange" /><MetricTile icon={CheckCircle2} label="成功" value={`${filteredDeployments.filter((row) => row.status === "succeeded").length}`} tone="green" /></>}>
+    filters={<><ModuleSearch value={search} placeholder="搜索项目、节点、版本或操作人" onChange={setSearch} /><div className="deploy-tabs" aria-label="部署环境">{envOptions.map((item) => <button key={item} className={item === environment ? "active" : ""} aria-pressed={item === environment} type="button" onClick={() => setEnvironment(item)}>{environmentLabel(item)}</button>)}</div></>}
+    metrics={<><MetricTile icon={CloudUpload} label="发布任务" value={data ? `${filteredDeployments.length}` : "—"} tone="blue" /><MetricTile icon={Activity} label="进行中" value={data ? `${filteredDeployments.filter((row) => ["queued", "preparing", "deploying"].includes(row.status)).length}` : "—"} tone="orange" /><MetricTile icon={CheckCircle2} label="成功" value={data ? `${filteredDeployments.filter((row) => row.status === "succeeded").length}` : "—"} tone="green" /></>}>
     <p className="module-freshness-note"><Clock3 size={15} />{freshness}</p>
     {loading && !data && <span className="sr-only" role="status">正在读取真实发布队列</span>}
     {error && !data && <div className="overview-error-state"><CloudOff size={18} /><span>{error}</span><button type="button" onClick={() => void retry()}>重试</button></div>}

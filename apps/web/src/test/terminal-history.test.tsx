@@ -29,13 +29,13 @@ describe("terminal live history page", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it("removes the visible heading and summary while retaining freshness", async () => {
+  it("shows the CloudPulse heading while retaining freshness", async () => {
     vi.mocked(listRemoteTasks).mockResolvedValue({ tasks: [task], collectedAt: now });
     const { container } = render(<TerminalHistoryPage notify={notify} />);
     await screen.findByText("读取服务状态 · nginx.service");
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "执行历史" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "执行历史" })).not.toHaveClass("sr-only");
     expect(screen.getByText(/后端采集于/)).toBeInTheDocument();
   });
 

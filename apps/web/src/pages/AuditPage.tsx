@@ -12,6 +12,7 @@ import { DetailDrawer } from "../components/ui/DetailDrawer";
 import { FieldSelect } from "../components/ui/FormControls";
 import { AuditExportActions, AuditExportBody, AuditExportFilters, AuditExportMetrics } from "../features/audit/AuditExportView";
 import { useAuditExports } from "../features/audit/useAuditExports";
+import { SecurityModuleTabs } from "../components/layout/SecurityModuleTabs";
 import { auditRecord, formatAuditParameters } from "../features/audit/model";
 import { usePollingResource } from "../hooks/usePollingResource";
 import type { Permission } from "@stackpilot/contracts";
@@ -20,7 +21,7 @@ import { formatBackendDateTime } from "../utils/time";
 
 function AuditPage({ page, notify, permissions = [] }: { page: PageKey; notify: Notify; permissions?: Permission[] }) {
   if (page === "audit-export") return <AuditExportPage page={page} notify={notify} allowed={permissions.includes("audit:read") && permissions.includes("audit:export")} />;
-  return <AuditLogPage page={page} notify={notify} />;
+  return <AuditLogPage page={page} notify={notify} canExport={permissions.includes("audit:export")} />;
 }
 
 function AuditExportPage({ page, notify, allowed }: { page: PageKey; notify: Notify; allowed: boolean }) {
@@ -32,7 +33,8 @@ function AuditExportPage({ page, notify, allowed }: { page: PageKey; notify: Not
     title={resolvePageMeta(page).title}
     subtitle={auditPagePreset(page).subtitle}
     page={page}
-    hideHeading
+    className="cloudpulse-security"
+    tabs={<SecurityModuleTabs module="audit" page={page} canExport={allowed} />}
     viewContext={false}
     actions={allowed ? <AuditExportActions resource={resource} notify={notify} /> : undefined}
     filters={allowed ? <AuditExportFilters search={search} format={format} status={status} onSearch={setSearch} onFormat={setFormat} onStatus={setStatus} /> : undefined}
@@ -42,7 +44,7 @@ function AuditExportPage({ page, notify, allowed }: { page: PageKey; notify: Not
   </ModulePageShell>;
 }
 
-function AuditLogPage({ page, notify }: { page: PageKey; notify: Notify }) {
+function AuditLogPage({ page, notify, canExport }: { page: PageKey; notify: Notify; canExport: boolean }) {
   const preset = auditPagePreset(page);
   const [auditSource, setAuditSource] = useState<AuditSource | undefined>(() => readAuditSourceParam() ?? undefined);
   const [searchByPage, setSearchByPage] = useState<Record<string, string>>({});
@@ -193,7 +195,8 @@ function AuditLogPage({ page, notify }: { page: PageKey; notify: Notify }) {
       title={resolvePageMeta(page).title}
       subtitle={auditSource === "database" ? "数据库审计视图，只展示数据库相关操作。" : preset.subtitle}
       page={page}
-      hideHeading
+      className="cloudpulse-security"
+      tabs={<SecurityModuleTabs module="audit" page={page} canExport={canExport} />}
       viewContext={false}
       actions={<>
         <button className="ghost" type="button" disabled={!audit.data || exporting} onClick={() => setExportOpen(true)}><Download size={15} /> {exporting ? "正在导出" : "导出全部匹配"}</button>

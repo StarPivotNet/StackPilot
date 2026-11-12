@@ -1,6 +1,6 @@
 import { createScheduleJob, deleteScheduleJob, fetchScheduleJobs, runScheduleJob, updateScheduleJob } from "../api/scheduleApi";
 import type { ScheduleJob } from "../api/scheduleApi";
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, Plus, RotateCcw, Shield, TerminalSquare } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, CirclePause, Clock3, Plus, RotateCcw, Shield, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolvePageMeta } from "../app/navigation";
 import { useQuickIntent } from "../app/routing";
@@ -20,6 +20,12 @@ import { formatBackendDateTime } from "../utils/time";
 import type { Permission } from "@stackpilot/contracts";
 
 const defaultPermissions: Permission[] = ["schedules:read", "schedules:write"];
+
+function ScheduleResultBadge({ result }: { result: string }) {
+  const Icon = result === "成功" ? CheckCircle2 : result === "失败" ? AlertTriangle : result === "已停用" ? CirclePause : Clock3;
+  const tone = result === "成功" ? "green" : result === "失败" ? "red" : "blue";
+  return <span className={`pill schedule-result ${tone}`}><Icon size={14} />{result}</span>;
+}
 
 function SchedulePage({ page, notify, permissions = defaultPermissions }: { page: PageKey; notify: Notify; permissions?: Permission[] }) {
   const [rows, setRows] = useState<ScheduleJob[]>([]);
@@ -286,7 +292,7 @@ function SchedulePage({ page, notify, permissions = defaultPermissions }: { page
       </div>
     </DetailDrawer>
   ) : drawer?.type === "detail" && selectedVisibleJob ? (
-    <DetailDrawer title="任务详情" subtitle={selectedVisibleJob.name} onClose={() => setDrawer(null)} className="schedule-job-drawer" actions={canWrite ? <><button className="ghost" type="button" onClick={() => editJob(selectedVisibleJob)}>编辑</button><button className="primary" type="button" disabled={!selectedVisibleJob.enabled} onClick={() => requestRunJob(selectedVisibleJob)}>立即执行</button></> : undefined}>
+    <DetailDrawer title="任务详情" subtitle={selectedVisibleJob.name} onClose={() => setDrawer(null)} className="schedule-job-drawer" modal actions={canWrite ? <><button className="ghost" type="button" onClick={() => editJob(selectedVisibleJob)}>编辑</button><button className="primary" type="button" disabled={!selectedVisibleJob.enabled} onClick={() => requestRunJob(selectedVisibleJob)}>立即执行</button></> : undefined}>
       <div className="detail-kv">
         <p><span>cron</span><b>{selectedVisibleJob.cron}</b></p>
         <p><span>命令</span><b>{selectedVisibleJob.command}</b></p>
@@ -311,13 +317,14 @@ function SchedulePage({ page, notify, permissions = defaultPermissions }: { page
   return (
     <ModulePageShell
       title={resolvePageMeta(page).title}
-      subtitle={`${schedulePreset.subtitle} ${freshness}`}
+      subtitle={schedulePreset.subtitle}
       page={page}
-      hideHeading
+      className="schedule-page"
       viewContext={false}
+      tabs={<nav className="module-tabs" aria-label="定时任务视图">{([["schedule", "全部任务"], ["schedule-enabled", "已启用"], ["schedule-failed", "失败任务"], ["schedule-calendar", "执行日历"]] as const).map(([route, label]) => <a key={route} href={`#${route}`} className={page === route ? "active" : undefined} aria-current={page === route ? "page" : undefined}>{label}</a>)}</nav>}
       actions={page === "schedule-failed" || !canWrite ? undefined : <button className="primary" type="button" onClick={openScheduleCreateFromQuick}><Plus size={15} /> 新建任务</button>}
       filters={<><ModuleSearch value={search} placeholder="搜索任务、cron 或命令" onChange={(value) => setSearchByPage((current) => ({ ...current, [page]: value }))} /><FieldSelect label="状态" value={stateFilter} options={["全部", "已启用", "已停用"]} onChange={(value) => setStateByPage((current) => ({ ...current, [page]: value }))} /></>}
-      metrics={<><MetricTile icon={CalendarDays} label={page === "schedule-failed" ? "失败任务" : "任务数"} value={`${page === "schedule-failed" ? filteredRows.length : rows.length}`} tone="blue" /><MetricTile icon={CheckCircle2} label="启用" value={`${rows.filter((row) => row.enabled).length}`} tone="green" /><MetricTile icon={Shield} label="失败" value={`${rows.filter((row) => row.lastExecution?.status === "失败").length}`} tone="red" /><MetricTile icon={TerminalSquare} label="来源" value="cron" tone="orange" /></>}
+      metrics={<><MetricTile icon={CalendarDays} label={page === "schedule-failed" ? "失败任务" : "任务数"} value={loading || loadError ? "—" : `${page === "schedule-failed" ? filteredRows.length : rows.length}`} tone="blue" /><MetricTile icon={CheckCircle2} label="启用" value={loading || loadError ? "—" : `${rows.filter((row) => row.enabled).length}`} tone="green" /><MetricTile icon={Shield} label="失败" value={loading || loadError ? "—" : `${rows.filter((row) => row.lastExecution?.status === "失败").length}`} tone="red" /><MetricTile icon={TerminalSquare} label="来源" value="cron" tone="orange" /></>}
     >
       <p className="module-freshness-note"><Clock3 size={15} />{freshness}</p>
       {scheduleDialog}
@@ -345,7 +352,7 @@ function SchedulePage({ page, notify, permissions = defaultPermissions }: { page
       )}
       {schedulePreset.mode === "calendar" && (
         <div className={`schedule-calendar ${calendarRows.length === 0 ? "is-empty" : ""}`}>
-          {calendarRows.map((row) => <article key={row.id} role="button" tabIndex={0} onClick={() => setDrawer({ type: "detail", id: row.id })} onKeyDown={(event) => activateOnKeyboard(event, () => setDrawer({ type: "detail", id: row.id }))}><span>{scheduleNextRunLabel(row)}</span><strong>{row.name}</strong><em>{row.cron}</em><b className={row.result === "失败" ? "red-text" : row.result === "成功" ? "green-text" : "orange-text"}>{row.enabled ? row.result : "已停用"}</b></article>)}
+          {calendarRows.map((row) => <article key={row.id} role="button" tabIndex={0} onClick={() => setDrawer({ type: "detail", id: row.id })} onKeyDown={(event) => activateOnKeyboard(event, () => setDrawer({ type: "detail", id: row.id }))}><span>{scheduleNextRunLabel(row)}</span><strong>{row.name}</strong><em>{row.cron}</em><ScheduleResultBadge result={row.enabled ? row.result : "已停用"} /></article>)}
           {filteredRows.length === 0 && <p className="module-empty-card">当前筛选没有日历任务</p>}
         </div>
       )}
@@ -353,10 +360,10 @@ function SchedulePage({ page, notify, permissions = defaultPermissions }: { page
         columns={[
           { key: "name", label: "任务", width: "132px", render: (row) => <button className="module-row-link" title={row.name} type="button" onClick={() => setDrawer({ type: "detail", id: row.id })}><CalendarDays size={15} /><b>{row.name}</b></button> },
           { key: "cron", label: "cron", width: "70px", render: (row) => <code title={row.cron}>{row.cron}</code> },
-          { key: "command", label: "命令", width: "120px", render: (row) => <span title={row.command}>{row.command}</span> },
-          { key: "enabled", label: "启用", width: "66px", render: (row) => <span className={`pill ${row.enabled ? "green" : "blue"}`}>{row.enabled ? "启用" : "停用"}</span> },
+          { key: "command", label: "命令", width: "120px", render: (row) => <code className="schedule-command" title={row.command}>{row.command}</code> },
+          { key: "enabled", label: "启用", width: "66px", render: (row) => <span className={`pill schedule-result ${row.enabled ? "green" : "blue"}`}>{row.enabled ? <CheckCircle2 size={14} /> : <CirclePause size={14} />}{row.enabled ? "启用" : "停用"}</span> },
           { key: "last", label: "最近执行", width: "90px", render: (row) => formatBackendDateTime(row.lastExecution?.startedAt, row.lastRun) },
-          { key: "result", label: "结果", width: "62px", render: (row) => <span className={`pill ${row.result === "成功" ? "green" : row.result === "失败" ? "red" : "blue"}`}>{row.result}</span> },
+          { key: "result", label: "结果", width: "62px", render: (row) => <ScheduleResultBadge result={row.result} /> },
           { key: "ops", label: "操作", width: "230px", render: (row) => <span className="table-actions">{scheduleActionButtons(row)}</span> },
         ]}
         rows={filteredRows}
@@ -366,7 +373,7 @@ function SchedulePage({ page, notify, permissions = defaultPermissions }: { page
           <>
             <div className="module-card-head">
               <button className="module-row-link" type="button" onClick={() => setDrawer({ type: "detail", id: row.id })}><CalendarDays size={15} /><b>{row.name}</b></button>
-              <span className={`pill ${row.result === "成功" ? "green" : row.result === "失败" ? "red" : "blue"}`}>{row.result}</span>
+              <ScheduleResultBadge result={row.result} />
             </div>
             <code className="module-card-code">{row.cron} · {row.command}</code>
             <div className="module-card-meta">

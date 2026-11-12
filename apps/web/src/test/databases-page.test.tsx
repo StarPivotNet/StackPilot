@@ -32,14 +32,14 @@ describe("database instances live page", () => {
   it.each([
     ["databases", "数据库管理"],
     ["databases-instances", "实例列表"],
-  ] as const)("removes the visible heading and summary from %s", async (page, title) => {
+  ] as const)("shows the CloudPulse heading and summary from %s", async (page, title) => {
     const { container } = render(<DatabasesPage page={page} setPage={setPage} notify={notify} permissions={["databases:install"]} />);
 
     expect((await screen.findAllByTitle("postgresql-16-main")).length).toBeGreaterThan(0);
 
-    expect(container.querySelector(".module-page-databases > .page-head h1:not(.sr-only)")).not.toBeInTheDocument();
+    expect(container.querySelector(".module-page-databases > .page-head h1:not(.sr-only)")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(screen.queryByText("数据库实例")).not.toBeInTheDocument();
     expect(screen.getByText(/后端采集于/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建数据库实例" })).toBeInTheDocument();
@@ -120,5 +120,21 @@ describe("database instances live page", () => {
     fireEvent.click(screen.getByRole("button", { name: "下一页" }));
     expect(screen.getAllByTitle("database-100")).toHaveLength(2);
     expect(screen.queryByTitle("database-0")).not.toBeInTheDocument();
+  });
+
+  it("does not reopen a replacement instance with the same name after the selected stable id disappears", async () => {
+    vi.useFakeTimers();
+    const originalUrl = window.location.href;
+    window.history.replaceState(null, "", "/?dbFocus=postgresql-16-main#databases");
+    vi.mocked(fetchDatabases).mockResolvedValueOnce(payload([database()])).mockResolvedValue(payload([database({ id: `database-${"b".repeat(32)}` })]));
+    try {
+      render(<DatabasesPage page="databases" setPage={setPage} notify={notify} />);
+      await act(async () => undefined);
+      expect(screen.getByRole("dialog", { name: "数据库详情" })).toBeInTheDocument();
+      await act(async () => { vi.advanceTimersByTime(10_000); await Promise.resolve(); });
+      expect(screen.queryByRole("dialog", { name: "数据库详情" })).not.toBeInTheDocument();
+      await act(async () => { vi.advanceTimersByTime(10_000); await Promise.resolve(); });
+      expect(screen.queryByRole("dialog", { name: "数据库详情" })).not.toBeInTheDocument();
+    } finally { window.history.replaceState(null, "", originalUrl); }
   });
 });

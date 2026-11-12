@@ -72,11 +72,11 @@ describe("schedule failed page", () => {
     ["schedule-enabled", "启用任务"],
     ["schedule-failed", "失败任务"],
     ["schedule-calendar", "执行日历"],
-  ])("removes the visible heading and preserves freshness on %s", async (page, title) => {
+  ])("shows the CloudPulse heading and preserves freshness on %s", async (page, title) => {
     vi.mocked(fetchScheduleJobs).mockResolvedValue(payload());
     const { container } = render(<SchedulePage page={page} notify={notify} />);
     await act(async () => undefined);
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
     expect(container.querySelector(".module-freshness-note")).toHaveTextContent("最近采集");
   });
@@ -141,7 +141,7 @@ describe("schedule failed page", () => {
     expect(within(calendar as HTMLElement).getAllByText("已停用")).toHaveLength(2);
     expect(within(calendar as HTMLElement).getByText("时间暂不可用")).toBeInTheDocument();
     fireEvent.click(within(calendar as HTMLElement).getAllByRole("button")[0]);
-    expect(within(screen.getByRole("region", { name: "任务详情" })).getByText("partial output")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog", { name: "任务详情" })).getByText("partial output")).toBeInTheDocument();
   });
 
   it("keeps details in a body-level drawer and separates modal and delete surfaces", async () => {
@@ -152,7 +152,7 @@ describe("schedule failed page", () => {
     expect(screen.getAllByText("nightly-backup")).toHaveLength(2);
 
     fireEvent.click(screen.getAllByRole("button", { name: "nightly-backup" })[0]);
-    const drawer = screen.getByRole("region", { name: "任务详情" });
+    const drawer = screen.getByRole("dialog", { name: "任务详情" });
     expect(drawer.parentElement).toBe(document.body);
     expect(drawer).toHaveClass("schedule-job-drawer");
     expect(drawer).not.toHaveClass("schedule-job-modal");

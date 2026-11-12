@@ -11,8 +11,8 @@ function SitesPage({ page, notify, permissions = defaultPermissions }: { page: P
   return page === "sites-create"
     ? allowed("sites:deploy") ? <SiteDeploymentPage notify={notify} canListNodes={allowed("nodes:read")} /> : <p className="overview-error-state" role="alert">没有站点部署权限</p>
     : page === "sites-cert"
-      ? <CertificateRenewalPage notify={notify} canRenew={allowed("sites:renew")} />
-      : <SitesMonitoringView page={page} canReadLogs={allowed("sites:logs")} canOperate={allowed("sites:operate")} />;
+      ? <CertificateRenewalPage notify={notify} canRenew={allowed("sites:renew")} canDeploy={allowed("sites:deploy")} />
+      : <SitesMonitoringView page={page} canReadLogs={allowed("sites:logs")} canOperate={allowed("sites:operate")} canDeploy={allowed("sites:deploy")} />;
 }
 
 export { SitesPage };

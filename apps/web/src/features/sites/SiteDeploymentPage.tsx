@@ -1,3 +1,4 @@
+import { SiteNavigation } from "./SiteNavigation";
 import { CheckCircle2, GitBranch, Plus, Server, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listAgentNodes } from "../../api/agentApi";
@@ -123,7 +124,7 @@ function SiteDeploymentPage({ notify, canListNodes }: { notify: Notify; canListN
     prepareKey.current = crypto.randomUUID(); activationKey.current = crypto.randomUUID();
   };
 
-  return <ModulePageShell title={resolvePageMeta("sites-create").title} subtitle="生产先预检再确认上线；预发仅构建和预检，不切换生产流量。" hideHeading page="sites-create" viewContext={false}>
+  return <ModulePageShell className="resource-cloudpulse" title={resolvePageMeta("sites-create").title} subtitle="生产先预检再确认上线；预发仅构建和预检，不切换生产流量。" page="sites-create" viewContext={false} tabs={<SiteNavigation page="sites-create" canDeploy />}>
     <div className="site-deployment-layout">
       <form className="site-deployment-form" onSubmit={(event) => void submitPlan(event)}>
         <header><GitBranch size={18} /><span><strong>Git 部署计划</strong><small>仅接受公开 github.com HTTPS 仓库</small></span></header>

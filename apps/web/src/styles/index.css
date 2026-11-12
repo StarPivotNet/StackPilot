@@ -2,9 +2,9 @@
 @import "./base.css";
 @import "./shell.css";
 @import "./page-transitions.css";
-@import "./components.css";
 @import "./internal-motion.css";
 @import "./pages.css";
+@import "./components.css";
 @import "./access.css";
 @import "./acl.css";
 @import "./settings.css";
@@ -35,3 +35,9 @@
 @import "./audit.css";
 @import "./settings-proxy.css";
 @import "./settings-security.css";
+@import "./hosts-cloudpulse.css";
+@import "./sites-cloudpulse.css";
+@import "./database-cloudpulse.css";
+@import "./files-cloudpulse.css";
+@import "./ssh.css";
+@import "./schedule.css";

@@ -69,10 +69,23 @@ describe("sites live monitoring page", () => {
     Object.defineProperty(document, "hidden", { configurable: true, value: false });
   });
 
+  it("keeps view filters separate when navigating between inventory and running sites", async () => {
+    vi.mocked(fetchSites).mockResolvedValue(payload([site(), site({ id: "stopped", domain: "stopped.example.com", status: "stopped" })]));
+    const { rerender } = render(<SitesPage page="sites" notify={notify} />);
+    await screen.findAllByTitle("stopped.example.com");
+    fireEvent.change(screen.getByPlaceholderText("搜索域名、上游、主机或数据源"), { target: { value: "stopped" } });
+    rerender(<SitesPage page="sites-running" notify={notify} />);
+    expect(screen.getByPlaceholderText("搜索域名、上游、主机或数据源")).toHaveValue("");
+    expect(screen.queryByTitle("stopped.example.com")).not.toBeInTheDocument();
+    expect(screen.getAllByTitle("api.example.com").length).toBeGreaterThan(0);
+    rerender(<SitesPage page="sites" notify={notify} />);
+    expect(screen.getByPlaceholderText("搜索域名、上游、主机或数据源")).toHaveValue("stopped");
+  });
+
   it.each([
     ["sites-running", "运行中站点"],
     ["sites-runtime", "服务分组"],
-  ] as const)("removes the visible heading and summary from %s", async (page, title) => {
+  ] as const)("shows the CloudPulse heading and summary from %s", async (page, title) => {
     vi.mocked(fetchSites).mockResolvedValue(payload([site()]));
     const { container } = render(<SitesPage page={page} notify={notify} />);
 
@@ -82,21 +95,21 @@ describe("sites live monitoring page", () => {
       await screen.findAllByTitle("api.example.com");
     }
 
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(screen.queryByText("正在加载已保存的站点快照")).not.toBeInTheDocument();
   });
 
-  it("removes the certificate heading and summary while retaining its action", async () => {
+  it("shows the certificate heading and summary while retaining its action", async () => {
     vi.mocked(fetchSites).mockResolvedValue(payload([site()]));
     const { container } = render(<SitesPage page="sites-cert" notify={notify} />);
 
     await screen.findAllByTitle("api.example.com");
 
-    expect(container.querySelector(".module-head > div:first-child")).not.toBeInTheDocument();
+    expect(container.querySelector(".module-head > div:first-child")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "证书续期" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "证书续期" })).not.toHaveClass("sr-only");
     expect(screen.queryByText("正在加载已保存的证书快照")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "批量续期" })).toBeInTheDocument();
   });

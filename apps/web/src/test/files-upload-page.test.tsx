@@ -6,13 +6,13 @@ import { FileUploadQueuePage } from "../pages/FilesPages";
 const empty = { uploads: [], collectedAt: "2026-07-14T00:00:00.000Z", maxUploadBytes: 1024 };
 describe("files upload page", () => {
   afterEach(() => vi.unstubAllGlobals());
-  it("removes the visible heading while retaining upload action and freshness", async () => {
+  it("shows the CloudPulse heading while retaining upload action and freshness", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(empty), { status: 200 })));
     const { container } = render(<FileUploadQueuePage page="files-upload" notify={vi.fn()} canWrite />);
     await screen.findAllByText("还没有真实上传记录");
-    expect(container.querySelector(".module-head h1:not(.sr-only)")).not.toBeInTheDocument();
+    expect(container.querySelector(".module-head h1:not(.sr-only)")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "上传队列" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "上传队列" })).not.toHaveClass("sr-only");
     expect(screen.getByRole("button", { name: "添加上传" })).toBeInTheDocument();
     expect(screen.getByText(/后端采集于/)).toBeInTheDocument();
   });

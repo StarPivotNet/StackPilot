@@ -21,7 +21,7 @@ function TerminalSessionDrawer({
   return (
     <DetailDrawer
       className="terminal-session-drawer"
-      title={`${session.user}@${session.host}`}
+      title={onConnect ? `${session.user}@${session.host}` : `${session.host} · Agent 详情`}
       subtitle={session.ip}
       modal
       onClose={onClose}
@@ -40,9 +40,9 @@ function TerminalSessionDrawer({
         <dl className="terminal-session-detail-grid">
           <div><dt>主机名</dt><dd>{session.host}</dd></div>
           <div><dt>IP 地址</dt><dd>{session.ip}</dd></div>
-          <div><dt>登录用户</dt><dd>{session.user}</dd></div>
-          <div><dt>权限</dt><dd>{session.privilege === "sudo" ? "sudo 管理权限" : "普通用户"}</dd></div>
-          <div><dt>会话开始</dt><dd>{session.startedAt}</dd></div>
+          <div><dt>{onConnect ? "登录用户" : "执行用户"}</dt><dd>{session.user}</dd></div>
+          <div><dt>权限</dt><dd>{session.privilege === "unknown" ? "由 Controller 与 Agent 校验" : session.privilege === "sudo" ? "sudo 管理权限" : "普通用户"}</dd></div>
+          <div><dt>{onConnect ? "会话开始" : "最近心跳"}</dt><dd>{session.startedAt}</dd></div>
           <div><dt>当前目录</dt><dd><code>{session.cwd}</code></dd></div>
           <div><dt>最后命令</dt><dd><code>{session.lastCommand}</code></dd></div>
           <div><dt>输出行数</dt><dd>{outputLineCount} 行</dd></div>

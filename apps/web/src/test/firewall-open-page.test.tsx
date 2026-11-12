@@ -23,7 +23,7 @@ describe("firewall open-port page", () => {
     expect(screen.getByText(/监听不等于上游网络已经放行/)).toBeInTheDocument();
     expect(screen.queryByText("HTTPS 公网访问")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /新增规则|刷新|重新采集/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "开放端口" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "开放端口" })).not.toHaveClass("sr-only");
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
   });
 

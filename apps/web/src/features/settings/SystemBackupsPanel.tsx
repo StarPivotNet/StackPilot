@@ -41,7 +41,7 @@ function SystemBackupsPanel({
 
   const selected = data?.backups.find((row) => row.id === selectedId) ?? null;
   const submit = async () => {
-    if (!pending || !password) return;
+    if (!pending || !password || readOnly || busy) return;
     setBusy(true);
     setMutationError(null);
     try {
@@ -161,7 +161,7 @@ function SystemBackupsPanel({
           confirmLabel="确认执行"
           tone="warning"
           busy={busy}
-          confirmDisabled={!password}
+          confirmDisabled={!password || readOnly}
           onClose={() => { setPending(null); setPassword(""); setMutationError(null); }}
           onConfirm={() => void submit()}
         >

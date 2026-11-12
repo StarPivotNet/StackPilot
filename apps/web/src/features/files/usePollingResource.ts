@@ -4,6 +4,7 @@ import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 export function usePollingResource<T>(resourceKey: string, fetcher: (signal: AbortSignal) => Promise<T>) {
   const [data, setData] = useState<T | null>(null);
   const [dataKey, setDataKey] = useState("");
+  const [settledKey, setSettledKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
@@ -26,7 +27,7 @@ export function usePollingResource<T>(resourceKey: string, fetcher: (signal: Abo
       if (!controller.signal.aborted && (!silent || !hasDataRef.current)) setError(reason instanceof Error ? reason.message : "数据加载失败");
     } finally {
       externalSignal?.removeEventListener("abort", abort);
-      if (sequence === sequenceRef.current) { requestRef.current = null; if (!silent) setLoading(false); }
+      if (sequence === sequenceRef.current) { requestRef.current = null; setSettledKey(resourceKey); if (!silent) setLoading(false); }
     }
   }, [fetcher, resourceKey]);
 
@@ -38,7 +39,7 @@ export function usePollingResource<T>(resourceKey: string, fetcher: (signal: Abo
   }, [load]);
 
   const visibleData = dataKey === resourceKey ? data : null;
-  const visibleLoading = loading || dataKey !== resourceKey;
+  const visibleLoading = loading || (dataKey !== resourceKey && settledKey !== resourceKey);
   useAutoRefresh((signal) => load(signal, true), undefined, !visibleLoading);
   return { data: visibleData, loading: visibleLoading, error, reload: load };
 }

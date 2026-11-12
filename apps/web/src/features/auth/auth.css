@@ -1,0 +1,44 @@
+.cloudpulse-auth.auth-screen { min-height:100dvh;width:100%;min-width:0;padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:40px;color:var(--text);background:var(--canvas);font:400 16px/1.6 var(--font-body); }
+.cloudpulse-auth .auth-brand { display:flex;align-items:center;gap:12px;font:700 18px/1.6 var(--font-display); }
+.cloudpulse-auth .auth-brand svg { color:var(--primary); }
+.cloudpulse-auth .auth-content { flex:1;display:flex;align-items:center;justify-content:center;min-width:0;width:100%; }
+.cloudpulse-auth .auth-form { display:flex;flex-direction:column;gap:24px;width:480px;max-width:100%;min-width:0;padding:40px;border:0;border-radius:20px;background:var(--surface);box-shadow:var(--shadow-medium); }
+.cloudpulse-auth .auth-form>header { display:flex;flex-direction:column;align-items:flex-start;gap:24px;min-width:0;margin-bottom:8px; }
+.cloudpulse-auth .auth-form>header>svg { color:var(--primary); }
+.cloudpulse-auth .auth-eyebrow { color:var(--muted);font:700 11px/1.2 var(--font-body);letter-spacing:.1em; }
+.cloudpulse-auth h1,.cloudpulse-auth .auth-form h1 { margin:0;max-width:100%;font:700 40px/1.2 var(--font-display);letter-spacing:.015em;overflow-wrap:anywhere;color:var(--text); }
+.cloudpulse-auth .auth-form label { display:flex;flex-direction:column;gap:8px;min-width:0;color:var(--text-soft);font-size:14px;font-weight:500; }
+.cloudpulse-auth .auth-form input { width:100%;min-width:0;height:40px;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font:400 15px/1.5 var(--font-body);box-shadow:none; }
+.cloudpulse-auth .auth-form input::placeholder { color:var(--subtle); }
+.cloudpulse-auth .auth-form input:focus { outline:0;border-color:var(--primary);box-shadow:0 0 0 3px rgb(14 165 233 / 12%); }
+.cloudpulse-auth .auth-form input:disabled { color:var(--muted);background:var(--surface-soft);opacity:.5; }
+.cloudpulse-auth :is(.auth-form,.auth-session-state)>.primary { min-height:48px;height:auto;justify-content:center;padding:10px 20px;border:0;border-radius:8px;font:600 15px/1.5 var(--font-body); }
+.cloudpulse-auth .auth-form .auth-error { display:flex;align-items:flex-start;gap:12px;margin:0;min-width:0;padding:16px;border:0;border-radius:8px;background:var(--danger-soft);color:var(--danger);font-size:14px;overflow-wrap:anywhere; }
+.cloudpulse-auth .auth-error svg { flex:none; }
+.cloudpulse-auth .auth-help { display:flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:14px; }
+.cloudpulse-auth .auth-help:hover { background:var(--surface-hover);color:var(--text); }
+.cloudpulse-auth .auth-help:focus-visible { outline:0;box-shadow:0 0 0 3px rgb(14 165 233 / 12%); }
+.cloudpulse-auth .auth-session-state { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;max-width:560px;min-width:0;text-align:center; }
+.cloudpulse-auth .auth-session-state>svg { color:var(--primary); }
+.cloudpulse-auth .auth-session-state h1 { font:600 28px/1.3 var(--font-display);letter-spacing:.01em; }
+.cloudpulse-auth .auth-session-state p { margin:0;color:var(--muted); }
+.cloudpulse-auth .auth-state-icon { display:flex;align-items:center;justify-content:center;padding:24px;width:80px;height:80px;border-radius:12px;background:var(--primary-soft);color:var(--primary); }
+.cloudpulse-auth .auth-footer { margin:0;color:var(--muted);text-align:center;font:500 12px/1.4 var(--font-body);letter-spacing:.01em; }
+.cloudpulse-auth .auth-initialization { width:640px;gap:32px; }
+.cloudpulse-auth .auth-initialization header { gap:16px;margin:0; }
+.cloudpulse-auth .auth-initialization header p { margin:0;color:var(--muted);font-size:14px; }
+.cloudpulse-auth .auth-setup-steps { margin:0;padding-left:24px;display:flex;flex-direction:column;gap:24px;font-size:14px; }
+.cloudpulse-auth .auth-setup-steps li { padding-left:8px;min-width:0; }
+.cloudpulse-auth .auth-setup-steps li::marker { color:var(--primary);font-family:var(--font-mono); }
+.cloudpulse-auth .auth-setup-steps strong { color:var(--text);font-weight:500; }
+.cloudpulse-auth .auth-setup-steps p { margin:8px 0 0;color:var(--muted); }
+.cloudpulse-auth .auth-setup-steps code { display:block;padding:16px;margin-top:16px;border-radius:8px;background:var(--surface-soft);color:var(--text);font:400 14px/1.5 var(--font-mono);overflow-wrap:anywhere; }
+.cloudpulse-auth .auth-setup-note { display:flex;align-items:flex-start;gap:12px;margin:0;color:var(--muted);font-size:14px; }
+.cloudpulse-auth .auth-setup-note svg { flex:none;color:var(--primary); }
+@media(max-width:773px) {
+  .cloudpulse-auth.auth-screen { padding:32px 24px;gap:32px; }
+  .cloudpulse-auth .auth-form,.cloudpulse-auth .auth-initialization { width:100%;padding:24px;gap:24px; }
+  .cloudpulse-auth .auth-form>header { gap:24px; }.cloudpulse-auth .auth-initialization>header { gap:16px; }
+  .cloudpulse-auth .auth-session-state { width:100%; }
+  .cloudpulse-auth .auth-setup-steps { padding-left:16px; }
+}

@@ -90,7 +90,7 @@
   padding: 0;
   border: 0;
   border-radius: var(--radius-lg);
-  background: var(--surface-dark);
+  background: var(--surface-soft);
   box-shadow: var(--shadow-medium);
 }
 .systemd-log-head {
@@ -100,30 +100,30 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  color: #f8fafc;
-  background: var(--surface-dark-2);
+  color: var(--text);
+  background: var(--surface);
 }
 .systemd-log-head > span { gap: 8px; font-family: var(--font-display); font-weight: 650; }
 .systemd-log-stream .systemd-log-head > span { margin-left: 0; }
 .systemd-log-head > span > svg { color: var(--tertiary); }
 .systemd-log-head > span > span { min-width: 0; display: grid; gap: 2px; }
-.systemd-log-head h2 { margin: 0; color: #f8fafc; font: 600 16px/1.5 var(--font-display); letter-spacing: 0; }
-.systemd-log-head em { color: #94a3b8; font-size: 12px; font-style: normal; }
-.systemd-log-head > time { display: inline-flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 12px; white-space: nowrap; }
+.systemd-log-head h2 { margin: 0; color: var(--text); font: 600 16px/1.5 var(--font-display); letter-spacing: 0; }
+.systemd-log-head em { color: var(--muted); font-size: 12px; font-style: normal; }
+.systemd-log-head > time { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .systemd-log-list { min-width: 0; padding: 12px; display: grid; gap: 8px; overflow: auto; }
 .systemd-log-list article {
   min-width: 0;
   padding: 12px;
   border: 0;
   border-radius: var(--radius-md);
-  background: var(--surface-dark-2);
+  background: var(--surface);
 }
 .systemd-log-list article:hover,
-.systemd-log-list article:focus-within { border: 0; outline: 0; background: var(--surface-dark-2); }
+.systemd-log-list article:focus-within { border: 0; outline: 0; background: var(--surface); }
 .systemd-log-list article > header { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(80px, auto); align-items: center; gap: 8px; }
 .systemd-log-list article > header strong,
 .systemd-log-list article > header code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.systemd-log-list article > header code { color: #94a3b8; font-size: 12px; text-align: right; }
+.systemd-log-list article > header code { color: var(--muted); font-size: 12px; text-align: right; }
 .systemd-log-list article > button {
   min-height: var(--control-sm);
   padding: 0 8px;
@@ -133,21 +133,21 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #94a3b8;
+  color: var(--muted);
   background: transparent;
   font-size: 12px;
   font-weight: 600;
 }
 .systemd-log-list article > button:hover,
-.systemd-log-list article > button:focus-visible { border: 0; color: #f8fafc; background: var(--primary-active); }
-.systemd-log-empty { margin: 0; padding: 40px 16px; color: #94a3b8; text-align: center; }
-.systemd-log-hint { margin: 8px 0 0; color: #94a3b8; font-size: 12px; }
+.systemd-log-list article > button:focus-visible { border: 0; color: var(--text); background: var(--primary-active); }
+.systemd-log-empty { margin: 0; padding: 40px 16px; color: var(--muted); text-align: center; }
+.systemd-log-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 
-.systemd-journal { min-width: 0; display: grid; gap: 4px; color: #cbd5e1; font: 400 12px/1.5 var(--font-mono); }
+.systemd-journal { min-width: 0; display: grid; gap: 4px; color: var(--text-soft); font: 400 14px/1.5 var(--font-mono); }
 .systemd-journal p { min-width: 0; margin: 0; display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; }
-.systemd-journal time { overflow: hidden; color: #94a3b8; text-overflow: ellipsis; white-space: nowrap; }
+.systemd-journal time { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
 .systemd-journal span { min-width: 0; overflow-wrap: anywhere; }
-.systemd-journal-empty { margin: 0; color: #94a3b8; font: 400 12px/1.5 var(--font-mono); }
+.systemd-journal-empty { margin: 0; color: var(--muted); font: 400 14px/1.5 var(--font-mono); }
 
 .detail-drawer.systemd-service-drawer {
   width: min(560px, 100vw);
@@ -196,7 +196,7 @@
 .systemd-drawer-journal > header > span { gap: 8px; color: var(--text); font-family: var(--font-display); font-weight: 650; }
 .systemd-drawer-journal > header > span > svg { color: var(--primary); }
 .systemd-drawer-journal > header time { color: var(--muted); font-size: 12px; }
-.systemd-drawer-journal > .systemd-journal { padding: 16px; border: 0; border-radius: var(--radius-md); background: var(--surface-dark); }
+.systemd-drawer-journal > .systemd-journal { padding: 16px; border: 0; border-radius: var(--radius-md); background: var(--surface-soft); }
 
 @media (max-width: 773px) {
   .systemd-page .module-card-row { min-width: 0; }
@@ -221,3 +221,26 @@
   .systemd-page .module-card-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .systemd-journal p { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
+
+.systemd-unit-button { min-width: 0; width: 100%; display: block; padding: 0; border: 0; color: var(--text); background: transparent; text-align: left; }
+.systemd-unit-button:hover { color: var(--primary); }
+.systemd-log-stream { border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-subtle); }
+.systemd-log-head { padding: 24px; color: var(--text); background: var(--surface); }
+.systemd-log-head h2 { color: var(--text); font: 600 28px/1.3 var(--font-display); }
+.systemd-log-list { padding: 24px; gap: 16px; }
+.systemd-log-list article { padding: 16px; background: var(--surface-soft); }
+.systemd-log-list article:hover, .systemd-log-list article:focus-within { background: var(--surface-soft); }
+.systemd-log-list article > button:hover, .systemd-log-list article > button:focus-visible { color: var(--primary); background: var(--primary-soft); }
+.systemd-journal { margin-top: 16px; color: var(--text-soft); font: 400 14px/1.5 var(--font-mono); }
+.systemd-journal p { grid-template-columns: 80px minmax(0, 1fr); gap: 16px; }
+.systemd-status { min-height: 32px; padding: 4px 8px; gap: 8px; font: 500 12px/1.4 var(--font-body); }
+.systemd-detail-grid dd { margin-top: 8px; font-size: 14px; font-weight: 500; }
+.systemd-page .module-table-wrap { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+@media (max-width:600px) { .systemd-log-head, .systemd-log-list { padding:16px; } .systemd-journal p { grid-template-columns:minmax(0,1fr); gap:4px; } .systemd-service-name,.systemd-hostname { white-space:normal; overflow-wrap:anywhere; } }
+
+.systemd-page .systemd-log-stream { color:var(--text); }
+.systemd-page .systemd-log-list article > header strong { color:var(--text); font:500 14px/1.5 var(--font-body); }
+.systemd-page .systemd-status > span { margin-left:0; color:inherit; }
+.systemd-page .systemd-journal p, .systemd-service-drawer .systemd-journal p { color:var(--text-soft); }
+.systemd-page .systemd-journal span, .systemd-service-drawer .systemd-journal span { color:inherit; }
+.systemd-page .systemd-journal time, .systemd-service-drawer .systemd-journal time { color:var(--muted); }

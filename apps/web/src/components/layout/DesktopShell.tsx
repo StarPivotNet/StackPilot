@@ -23,6 +23,7 @@ import { OverviewPage } from "../../pages/OverviewPage";
 import { OverviewRisksPage } from "../../pages/OverviewRisksPage";
 import { OverviewTasksPage } from "../../pages/OverviewTasksPage";
 import { SchedulePage } from "../../pages/SchedulePage";
+import { SshManagementPage } from "../../pages/SshManagementPage";
 import { SettingsPage } from "../../pages/SettingsPage";
 import { SitesPage } from "../../pages/SitesPage";
 import { SystemdPage } from "../../pages/SystemdPage";
@@ -211,12 +212,12 @@ function DesktopShellContent({
         onToggleCollapsed={toggleSidebar}
         onExpandCollapsed={expandSidebar}
         onNavigate={() => {
-          if (isNarrowSidebar) setSidebarCollapsed(true);
+          if (isNarrowSidebar) collapseSidebar();
         }}
         permissions={user.permissions}
       />
       <div className="desktop-main" inert={sidebarOverlayOpen} aria-hidden={sidebarOverlayOpen ? "true" : undefined}>
-        <TopBar page={page} setPage={setPage} chrome={topbarChrome} notify={notify} unreadCount={topbarUnreadCount} setUnreadCount={setTopbarUnreadCount} overview={overview} interactionsDisabled={sessionLocked} permissions={user.permissions} onLogout={onLogout} />
+        <TopBar page={page} setPage={setPage} chrome={topbarChrome} notify={notify} unreadCount={topbarUnreadCount} setUnreadCount={setTopbarUnreadCount} overview={overview} interactionsDisabled={sessionLocked} permissions={user.permissions} accountName={user.displayName || user.username} onLogout={onLogout} />
         <div className="desktop-content" ref={desktopContentRef}>
           <PageTransition page={page}>
             {page === "overview" && <OverviewPage setPage={setPage} notify={notify} />}
@@ -239,6 +240,8 @@ function DesktopShellContent({
             {activeModule === "firewall" && <FirewallPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "deploy" && <DeployPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "schedule" && <SchedulePage page={page} notify={notify} permissions={user.permissions} />}
+            {activeModule === "ssh" && user.permissions.includes("nodes:read") && <SshManagementPage page={page} setPage={setPage} notify={notify} />}
+            {activeModule === "ssh" && !user.permissions.includes("nodes:read") && <section className="module-page"><div className="page-head"><div><h1>SSH 管理</h1><p className="page-subtitle">当前账号没有节点读取权限，请联系管理员授权。</p></div></div></section>}
             {activeModule === "audit" && user.permissions.includes("audit:read") && <AuditPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "acl" && <AclPage page={page} setPage={setPage} notify={notify} />}
             {activeModule === "settings" && (

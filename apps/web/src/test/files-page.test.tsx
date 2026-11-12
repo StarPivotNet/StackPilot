@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FilesPage } from "../pages/FilesPages";
@@ -7,17 +7,31 @@ const listPayload = { root: "/tmp/files", path: "/", collectedAt: "2026-07-14T00
 function response(payload: unknown, status = 200) { return new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } }); }
 
 describe("files browser page", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+  it("settles an initial error and automatically recovers on the next read-only poll", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({ error: "目录暂不可读" }, 503)).mockResolvedValueOnce(response(listPayload));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<FilesPage page="files" notify={vi.fn()} canWrite={false} />);
+    await act(async () => undefined);
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+    expect(screen.queryByText("正在从 /api/files 读取文件目录")).not.toBeInTheDocument();
+    await act(async () => { vi.advanceTimersByTime(10_000); await Promise.resolve(); });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getAllByText("index.html").length).toBeGreaterThan(0);
+    expect(fetchMock.mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true);
+  });
   it.each([
     ["files", "文件"],
     ["files-www", "受管目录"],
-  ] as const)("removes the visible heading from %s while retaining actions and freshness", async (page, title) => {
+  ] as const)("shows the CloudPulse heading from %s while retaining actions and freshness", async (page, title) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(listPayload)));
     const { container } = render(<FilesPage page={page} notify={vi.fn()} canWrite />);
     expect((await screen.findAllByText("index.html")).length).toBeGreaterThan(0);
-    expect(container.querySelector(".module-head h1:not(.sr-only)")).not.toBeInTheDocument();
+    expect(container.querySelector(".module-head h1:not(.sr-only)")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(screen.getByRole("button", { name: "创建文件夹" })).toBeInTheDocument();
     expect(screen.getByText(/后端采集于/)).toBeInTheDocument();
   });

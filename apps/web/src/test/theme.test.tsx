@@ -57,7 +57,7 @@ describe("theme provider", () => {
     expect(screen.getByRole("button", { name: "切换到浅色主题" })).toBeInTheDocument();
   });
 
-  it("removes location context from compact pages without affecting other pages", () => {
+  it("keeps the shared CloudPulse breadcrumb on workbench and module pages", () => {
     const { rerender } = render(
       <ThemeProvider>
         <TopBar
@@ -74,8 +74,8 @@ describe("theme provider", () => {
       </ThemeProvider>,
     );
 
-    expect(screen.queryByLabelText("当前位置")).not.toBeInTheDocument();
-    expect(document.querySelector(".cloud-header")).toHaveClass("without-context");
+    expect(screen.getByLabelText("当前位置")).toHaveTextContent("控制台工作台");
+    expect(document.querySelector(".cloud-header")).not.toHaveClass("without-context");
 
     rerender(
       <ThemeProvider>
@@ -93,8 +93,8 @@ describe("theme provider", () => {
       </ThemeProvider>,
     );
 
-    expect(screen.queryByLabelText("当前位置")).not.toBeInTheDocument();
-    expect(document.querySelector(".cloud-header")).toHaveClass("without-context");
+    expect(screen.getByLabelText("当前位置")).toHaveTextContent("网站服务分组");
+    expect(document.querySelector(".cloud-header")).not.toHaveClass("without-context");
 
     rerender(
       <ThemeProvider>

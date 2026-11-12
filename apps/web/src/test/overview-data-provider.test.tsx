@@ -163,9 +163,9 @@ describe("OverviewDataProvider", () => {
     );
     await act(async () => { await Promise.resolve(); });
 
-    expect(screen.getByRole("heading", { name: "集群状态" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "集群状态" })).not.toHaveClass("sr-only");
     expect(screen.getByRole("heading", { name: "任务流" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "风险中心" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "风险中心" })).not.toHaveClass("sr-only");
     expect(fetchOverviewHealth).not.toHaveBeenCalled();
     expect(fetchOverviewTasks).not.toHaveBeenCalled();
     expect(fetchOverviewRisks).not.toHaveBeenCalled();

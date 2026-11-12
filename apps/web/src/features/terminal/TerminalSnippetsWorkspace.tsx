@@ -12,6 +12,7 @@ import { FieldSelect } from "../../components/ui/FormControls";
 import { useAutoRefresh } from "../../hooks/useAutoRefresh";
 import type { Notify } from "../../types/app";
 import { createLocalId, formatBackendDateTime } from "../../utils/time";
+import { TerminalTabs } from "./TerminalTabs";
 
 const riskLabel = { read: "只读", change: "变更", danger: "危险" } as const;
 const taskStatusLabel: Record<RemoteTaskRecord["status"], string> = { queued: "等待 Agent", dispatched: "已下发", running: "执行中", succeeded: "成功", failed: "失败", cancelled: "已取消", expired: "已过期" };
@@ -142,7 +143,7 @@ function TerminalSnippetsWorkspace({ notify, permissions }: { notify: Notify; pe
   const closeExecutionDialog = useCallback(() => { if (!executing) { setPendingExecution(null); setPassword(""); } }, [executing]);
 
   return <>
-    <ModulePageShell title={resolvePageMeta("terminal-snippets").title} subtitle={loading ? "正在从 Controller 加载受控命令片段" : `片段、收藏和任务状态来自真实后端 · 更新于 ${formatBackendDateTime(collectedAt)}`} hideHeading page="terminal-snippets" className="terminal-page terminal-snippets-live-page" viewContext={false} filters={<><ModuleSearch value={search} placeholder="搜索命令、分类或说明" onChange={setSearch} /><FieldSelect label="分类" value={category} options={categories} onChange={setCategory} /><FieldSelect label="目标 Agent" value={effectiveNodeId || "暂无 Agent"} options={nodeOptions} onChange={setTargetNodeId} /></>} metrics={<><MetricTile icon={TerminalSquare} label="受控片段" value={`${snippets.length}`} tone="blue" /><MetricTile icon={Server} label="在线 Agent" value={`${onlineNodes.length}`} tone={onlineNodes.length ? "green" : "gray"} /><MetricTile icon={Shield} label="可执行" value={`${snippets.filter((snippet) => canExecute && effectiveNode && availableFor(effectiveNode, snippet)).length}`} tone="green" /></>}>
+    <ModulePageShell title={resolvePageMeta("terminal-snippets").title} subtitle="收藏常用受控命令，在授权节点上确认后执行。" page="terminal-snippets" className="terminal-page terminal-snippets-live-page" viewContext={false} tabs={<TerminalTabs page="terminal-snippets" />} filters={<><ModuleSearch value={search} placeholder="搜索命令、分类或说明" onChange={setSearch} /><FieldSelect label="分类" value={category} options={categories} onChange={setCategory} /><FieldSelect label="目标 Agent" value={effectiveNodeId || "暂无 Agent"} options={nodeOptions} onChange={setTargetNodeId} /></>} metrics={<><MetricTile icon={TerminalSquare} label="受控片段" value={loading || error ? "—" : `${snippets.length}`} tone="blue" /><MetricTile icon={Server} label="在线 Agent" value={loading || error ? "—" : `${onlineNodes.length}`} tone={onlineNodes.length ? "green" : "gray"} /><MetricTile icon={Shield} label="可执行" value={loading || error ? "—" : `${snippets.filter((snippet) => canExecute && effectiveNode && availableFor(effectiveNode, snippet)).length}`} tone="green" /></>}>
       {loading && <span className="sr-only" role="status" aria-live="polite">正在从 /api/terminal/snippets 加载真实片段</span>}
       {error && <div className="overview-error-state terminal-snippets-error"><Shield size={18} /><span>{error}</span>{canRead && <button type="button" onClick={() => void retry()}>重试</button>}</div>}
       {!loading && !error && <p className="module-freshness-note"><Clock3 size={14} />后端更新于 {formatBackendDateTime(collectedAt)}</p>}

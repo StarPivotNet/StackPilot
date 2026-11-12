@@ -11,6 +11,7 @@ import { DataTable } from "../components/ui/DataTable";
 import { DetailDrawer } from "../components/ui/DetailDrawer";
 import { FieldSelect, FormLine, FormSelectLine } from "../components/ui/FormControls";
 import { FirewallOpenPortsPage } from "../features/firewall/FirewallOpenPortsPage";
+import { SecurityModuleTabs } from "../components/layout/SecurityModuleTabs";
 import { useFirewallRules } from "../features/firewall/useFirewallRules";
 import { firewallPagePreset, isValidFirewallSource } from "../features/firewall/validation";
 import type { Notify, PageKey } from "../types/app";
@@ -143,7 +144,7 @@ function FirewallRulesPage({ page, notify, permissions = [] }: Props) {
   };
 
   if (!canRead) {
-    return <ModulePageShell title={resolvePageMeta(page).title} subtitle="当前账号没有防火墙读取权限" page={page} hideHeading viewContext={false}>
+    return <ModulePageShell title={resolvePageMeta(page).title} subtitle="当前账号没有防火墙读取权限" page={page} className="cloudpulse-security" viewContext={false}>
       <div className="overview-error-state"><Lock size={18} /><span>无权读取主机防火墙数据</span></div>
     </ModulePageShell>;
   }
@@ -153,7 +154,8 @@ function FirewallRulesPage({ page, notify, permissions = [] }: Props) {
   const sourceOptions = [...new Set(["全部", ...(sourceFilter !== "全部" ? [sourceFilter] : []), ...rows.map((row) => row.source)])];
   const protocolLabel = (rule: FirewallRule) => rule.protocol?.toUpperCase() ?? "ANY";
 
-  return <ModulePageShell title={resolvePageMeta(page).title} subtitle={preset.subtitle} page={page} hideHeading viewContext={false} sideModal
+  return <ModulePageShell title={resolvePageMeta(page).title} subtitle={preset.subtitle} page={page} className="cloudpulse-security" viewContext={false} sideModal
+    tabs={<SecurityModuleTabs module="firewall" page={page} />}
     actions={canOperate ? <button className="primary" type="button" disabled={!canChange} title={!canChange ? "UFW 未启用，规则变更已锁定" : undefined} onClick={(event) => { setDraftErrors({}); open({ type: "create" }, event.currentTarget); }}><Plus size={15} />新增规则</button> : null}
     filters={<><ModuleSearch value={search} placeholder="搜索规则、端口、来源或主机" onChange={(value) => setSearchByPage((current) => ({ ...current, [page]: value }))} /><FieldSelect label="协议" value={protocolFilter} options={["全部", "TCP", "UDP", "ANY"]} onChange={(value) => setProtocolByPage((current) => ({ ...current, [page]: value }))} /><FieldSelect label="来源" value={sourceFilter} options={sourceOptions} onChange={(value) => setSourceByPage((current) => ({ ...current, [page]: value }))} /></>}
     metrics={<><MetricTile icon={Shield} label="规则数" value={resource.data ? `${rows.length}` : "暂不可用"} tone="blue" /><MetricTile icon={CheckCircle2} label="受管规则" value={resource.data ? `${rows.filter((row) => row.managed).length}` : "暂不可用"} tone="green" /><MetricTile icon={Lock} label="UFW 状态" value={resource.data ? resource.data.active ? "已启用" : "未启用" : "不可用"} tone={resource.data?.active ? "green" : "orange"} /></>}
@@ -182,11 +184,14 @@ function FirewallRulesPage({ page, notify, permissions = [] }: Props) {
       { key: "target", label: "主机", render: () => <span className="firewall-rule-value" title={resource.data?.host}>{resource.data?.host ?? "-"}</span> },
       { key: "managed", label: "归属", render: (row) => <span className={`pill ${row.managed ? "green" : "blue"}`}>{row.managed ? "受管" : "外部"}</span> },
       { key: "ops", label: "操作", width: "130px", render: (row) => <span className="table-actions firewall-rule-actions"><button type="button" aria-label={`查看防火墙规则 ${row.name} 详情`} onClick={(event) => open({ type: "detail", ruleId: row.id }, event.currentTarget)}>详情</button>{canOperate && <button className="firewall-rule-delete" type="button" disabled={!row.managed || !canChange} title={!row.managed ? "外部规则只能查看" : undefined} aria-label={`删除防火墙规则 ${row.name}`} onClick={(event) => open({ type: "delete", ruleId: row.id }, event.currentTarget)}>删除</button>}</span> },
-    ]} rows={filteredRows} emptyText={resource.data?.collectionStatus === "unavailable" ? "UFW 数据暂不可用" : resource.data && !resource.data.active ? "UFW 当前未启用，没有生效规则" : rows.length ? "没有匹配的防火墙规则" : "未发现 UFW 规则，系统将继续自动采集"} getRowKey={(row) => row.id} />
+    ]} rows={filteredRows} emptyText={resource.data?.collectionStatus === "unavailable" ? "UFW 数据暂不可用" : resource.data && !resource.data.active ? "UFW 当前未启用，没有生效规则" : rows.length ? "没有匹配的防火墙规则" : "未发现 UFW 规则，系统将继续自动采集"} getRowKey={(row) => row.id}
+      mobileCard={(row) => <><div className="module-card-head"><button className="module-row-link" type="button" aria-label={`查看防火墙规则 ${row.name}`} onClick={(event) => open({ type: "detail", ruleId: row.id }, event.currentTarget)}><Shield size={18} /><b>{row.name}</b></button><span className={`pill ${row.managed ? "green" : "blue"}`}>{row.managed ? "受管规则" : "外部规则"}</span></div><code className="module-card-code">{row.port}/{protocolLabel(row)}</code><div className="module-card-meta"><span><b>来源</b><em>{row.source}</em></span><span><b>目标</b><em>{row.destination}</em></span><span><b>主机</b><em>{resource.data?.host ?? "暂不可用"}</em></span><span><b>方向 / 动作</b><em>{row.direction.toUpperCase()} / {row.action.toUpperCase()}</em></span></div><div className="module-card-footer"><button className="ghost" type="button" onClick={(event) => open({ type: "detail", ruleId: row.id }, event.currentTarget)}>详情</button>{canOperate && <button className="ghost firewall-rule-delete" type="button" disabled={!row.managed || !canChange} aria-label={`删除防火墙规则 ${row.name}`} onClick={(event) => open({ type: "delete", ruleId: row.id }, event.currentTarget)}>删除</button>}</div></>}
+    />
   </ModulePageShell>;
 }
 
 function FirewallPage(props: Props) {
+  if (props.page === "firewall-deny" && !props.permissions?.includes("firewall:read")) return <FirewallRulesPage {...props} />;
   if (props.page === "firewall-open") return <FirewallOpenPortsPage permissions={props.permissions ?? []} />;
   if (props.page === "firewall-deny") return <FirewallDenyPage page={props.page} />;
   return <FirewallRulesPage {...props} />;

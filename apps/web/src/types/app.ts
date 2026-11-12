@@ -5,6 +5,7 @@ type ParentPageKey =
   | "databases"
   | "files"
   | "terminal"
+  | "ssh"
   | "systemd"
   | "firewall"
   | "deploy"

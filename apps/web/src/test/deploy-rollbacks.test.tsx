@@ -62,7 +62,7 @@ describe("deploy rollbacks live workspace", () => {
     expect(screen.queryByText("生产")).not.toBeInTheDocument();
     expect(screen.queryByText("上一健康版本")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "执行" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "版本记录" })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: "版本记录" })).not.toHaveClass("sr-only");
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
     expect(container.querySelector(".module-freshness-note")).toHaveTextContent("采集于");
   });

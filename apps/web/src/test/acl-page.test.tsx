@@ -32,10 +32,10 @@ describe("ACL workbench", () => {
     ["acl-users", "用户"],
     ["acl-roles", "角色"],
     ["acl-policies", "权限项"],
-  ] as const)("removes the visible heading and context on %s", (page, title) => {
+  ] as const)("renders the design heading without redundant context on %s", (page, title) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ users: [], roles })));
     const { container } = renderAcl(page);
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
   });
 

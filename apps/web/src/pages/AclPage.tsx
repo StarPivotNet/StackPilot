@@ -34,10 +34,13 @@ const permissionDetails: Partial<Record<Permission, Omit<PermissionMeta, "key">>
   "schedules:write": { name: "定时任务管理", module: "定时任务", risk: "高", description: "创建、修改、启停和删除定时任务。" },
   "nodes:read": { name: "节点查看", module: "主机", risk: "低", description: "查看授权节点及其运行状态。" },
   "nodes:manage": { name: "节点管理", module: "主机", risk: "高", description: "注册、轮换、撤销节点或授权高风险能力。" },
+  "services:read": { name: "服务清单查看", module: "systemd", risk: "低", description: "查看授权节点的服务清单与运行状态。" },
+  "services:operate": { name: "服务操作", module: "systemd", risk: "高", description: "在授权节点执行服务启动、停止与重启操作。" },
   "terminal:read": { name: "终端片段查看", module: "终端", risk: "低", description: "查看受控命令片段和会话信息。" },
   "terminal:execute": { name: "终端命令执行", module: "终端", risk: "高", description: "在授权节点执行受控命令。" },
   "systemd:read": { name: "服务状态查看", module: "systemd", risk: "中", description: "查看 systemd 状态与脱敏日志。" },
   "firewall:read": { name: "防火墙查看", module: "防火墙", risk: "中", description: "查看监听端口与授权节点的防火墙拒绝事件。" },
+  "firewall:operate": { name: "防火墙规则管理", module: "防火墙", risk: "高", description: "新增或删除受管 UFW 放行规则。" },
   "sites:read": { name: "网站查看", module: "网站", risk: "低", description: "查看站点、运行时与证书状态。" },
   "sites:logs": { name: "网站日志查看", module: "网站", risk: "中", description: "查看站点结构化日志。" },
   "sites:deploy": { name: "网站发布", module: "网站", risk: "高", description: "创建并激活站点部署计划。" },
@@ -215,17 +218,18 @@ function AclPage({ page, setPage, notify }: { page: PageKey; setPage: SetPage; n
         title={resolvePageMeta(page).title}
         subtitle={aclPreset.subtitle}
         page={page}
-        hideHeading
+        className="cloudpulse-security"
         viewContext={false}
         actions={tab === "roles" ? <button className="primary" type="button" onClick={() => { setError(""); setCreateOpen(true); }}><Plus size={16} aria-hidden="true" />创建角色</button> : undefined}
-        filters={<><nav className="deploy-tabs" aria-label="权限视图"><button className={tab === "users" ? "active" : ""} type="button" aria-current={tab === "users" ? "page" : undefined} onClick={() => setAclTab("users")}>用户</button><button className={tab === "roles" ? "active" : ""} type="button" aria-current={tab === "roles" ? "page" : undefined} onClick={() => setAclTab("roles")}>角色</button><button className={tab === "policies" ? "active" : ""} type="button" aria-current={tab === "policies" ? "page" : undefined} onClick={() => setAclTab("policies")}>权限项</button></nav>{tab === "users" && <ModuleSearch value={userSearch} placeholder="搜索用户、邮箱或角色" onChange={setUserSearch} />}{tab === "policies" && <><ModuleSearch value={policySearch} placeholder="搜索权限项、权限键或角色" onChange={setPolicySearch} /><FieldSelect label="模块" value={policyModule} options={policyModules} onChange={setPolicyModule} /><FieldSelect label="风险" value={policyRisk} options={["全部", "高", "中", "低"]} onChange={setPolicyRisk} /></>}</>}
+        tabs={<nav className="deploy-tabs" aria-label="权限视图"><button className={tab === "users" ? "active" : ""} type="button" aria-current={tab === "users" ? "page" : undefined} onClick={() => setAclTab("users")}>用户</button><button className={tab === "roles" ? "active" : ""} type="button" aria-current={tab === "roles" ? "page" : undefined} onClick={() => setAclTab("roles")}>角色</button><button className={tab === "policies" ? "active" : ""} type="button" aria-current={tab === "policies" ? "page" : undefined} onClick={() => setAclTab("policies")}>权限项</button></nav>}
+        filters={<>{tab === "users" && <ModuleSearch value={userSearch} placeholder="搜索用户、邮箱或角色" onChange={setUserSearch} />}{tab === "policies" && <><ModuleSearch value={policySearch} placeholder="搜索权限项、权限键或角色" onChange={setPolicySearch} /><FieldSelect label="模块" value={policyModule} options={policyModules} onChange={setPolicyModule} /><FieldSelect label="风险" value={policyRisk} options={["全部", "高", "中", "低"]} onChange={setPolicyRisk} /></>}</>}
         metrics={tab === "users" ? undefined : <><MetricTile icon={Lock} label="当前角色权限" value={selectedRole ? `${rolePermissions.length}/${permissions.length}` : "--"} tone="blue" /><MetricTile icon={Shield} label="高风险权限" value={`${permissions.filter((permission) => permission.risk === "高").length}`} tone="orange" /><MetricTile icon={UserRound} label="服务端角色" value={loading ? "--" : `${roles.length}`} tone="blue" /></>}
       >
         {tab === "users" ? <IdentityManagement notify={notify} search={userSearch} /> : error && !saveRoleId && !createOpen ? <div className="identity-error" role="alert"><CircleAlert size={17} aria-hidden="true" /><span>{error}</span><button className="ghost small" type="button" onClick={() => void loadRoles()}>重试</button></div> : loading ? <div className="identity-list-state" role="status">正在加载角色数据</div> : tab === "roles" ? (
           <div className="acl-role-layout">
             <PanelCard title="角色列表">
               <div className="role-list" aria-label="角色列表">
-                {roles.map((role) => <button key={role.id} className={role.id === selectedRole?.id ? "active" : ""} type="button" aria-current={role.id === selectedRole?.id ? "true" : undefined} onClick={() => setRoleId(role.id)}><strong>{role.name}</strong><em>{(drafts[role.id] ?? role.permissions).length}/{permissions.length} 项权限</em><span>{role.description || "未填写角色说明"}</span></button>)}
+                {roles.length === 0 && <p className="module-empty-card">当前没有可用角色</p>}{roles.map((role) => <button key={role.id} className={role.id === selectedRole?.id ? "active" : ""} type="button" aria-current={role.id === selectedRole?.id ? "true" : undefined} onClick={() => setRoleId(role.id)}><strong>{role.name}</strong><em>{(drafts[role.id] ?? role.permissions).length}/{permissions.length} 项权限</em><span>{role.description || "未填写角色说明"}</span></button>)}
               </div>
             </PanelCard>
             {selectedRole && <PanelCard title={`${selectedRole.name} 权限项`} action={!selectedRole.builtin && dirtyRoleIdSet.has(selectedRole.id) ? "保存当前角色" : undefined} onAction={() => openSave(selectedRole.id)}>
@@ -241,7 +245,7 @@ function AclPage({ page, setPage, notify }: { page: PageKey; setPage: SetPage; n
         ) : (
           <div className="acl-policy-layout">
             <div className="policy-catalog" aria-label="权限项目录">
-              {filteredPermissions.map((permission) => <button key={permission.key} className={permission.key === activePermission?.key ? "active" : ""} type="button" aria-current={permission.key === activePermission?.key ? "true" : undefined} onClick={() => setSelectedPermission(permission.key)}><span><b>{permission.name}</b><i>{permission.module}</i></span><em className={permission.risk === "高" ? "red-text" : permission.risk === "中" ? "orange-text" : "blue-text"}>{permission.risk}风险</em><small>{permission.description}</small></button>)}
+              {filteredPermissions.map((permission) => <button key={permission.key} className={permission.key === activePermission?.key ? "active" : ""} type="button" aria-current={permission.key === activePermission?.key ? "true" : undefined} onClick={() => setSelectedPermission(permission.key)}><span><b>{permission.name}</b><i>{permission.module}</i></span><em className={permission.risk === "高" ? "orange-text" : permission.risk === "中" ? "orange-text" : "blue-text"}>{permission.risk}风险</em><small>{permission.description}</small></button>)}
               {filteredPermissions.length === 0 && <p className="module-empty-card">没有匹配的权限项</p>}
             </div>
             {activePermission ? <PanelCard className="acl-policy-detail-panel" title={`${activePermission.name} 关联角色`}>

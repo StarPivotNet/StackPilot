@@ -18,7 +18,7 @@ describe("audit export real backend", () => {
       .mockResolvedValueOnce(json({ exports: [record], collectedAt: "2026-07-15T12:00:03.000Z" }));
     vi.stubGlobal("fetch", fetchMock); const user = userEvent.setup(); const { container } = render(<AuditPage page="audit-export" notify={vi.fn()} permissions={["audit:read", "audit:export"]} />);
     expect((await screen.findAllByText("真实审计快照")).length).toBeGreaterThan(0); expect(screen.queryByText("今日操作审计 CSV")).not.toBeInTheDocument(); expect(screen.getByText(/后端采集/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "导出记录" })).toHaveClass("sr-only"); expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "导出记录" })).not.toHaveClass("sr-only"); expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "新建导出" })); const dialog = screen.getByRole("alertdialog", { name: "创建审计快照" }); expect(within(dialog).getByRole("combobox", { name: /文件格式/ })).toHaveTextContent("CSV"); await user.type(within(dialog).getByLabelText("当前密码"), "current password"); await user.click(within(dialog).getByRole("button", { name: "确认生成" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/audit-exports", expect.objectContaining({ method: "POST", headers: expect.objectContaining({ "X-CSRF-Token": "csrf-token-held-in-memory-1234567890", "X-Reauth-Proof": "proof-held-in-memory-1234567890123456" }), body: expect.stringContaining('"format":"csv"') })));
   });

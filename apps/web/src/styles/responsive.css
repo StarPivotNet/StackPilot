@@ -16,16 +16,6 @@
   .cloud-header-context,
   .cloud-header-freshness { display: none; }
   .cloud-footer nav a span { display: none; }
-  .desktop-frame { grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr); }
-  .cloud-sidebar { width: var(--sidebar-collapsed); padding-inline: 10px; }
-  .cloud-sidebar .cloud-sidebar-brand { padding-inline: 0; justify-content: center; }
-  .cloud-sidebar .cloud-sidebar-brand-copy,
-  .cloud-sidebar .cloud-sidebar-parent-label,
-  .cloud-sidebar .cloud-sidebar-chevron,
-  .cloud-sidebar .cloud-sidebar-badge,
-  .cloud-sidebar .cloud-sidebar-children,
-  .cloud-sidebar .cloud-sidebar-collapse > span:last-child { display: none; }
-  .cloud-sidebar .cloud-sidebar-parent { padding: 0; }
   .module-layout.has-side { grid-template-columns: minmax(0, 1fr); }
   .terminal-workbench { grid-template-columns: minmax(230px, 280px) minmax(0, 1fr); }
   .database-instance-lower,
@@ -37,86 +27,35 @@
 }
 
 @media (max-width: 773px) {
-  :root { --topbar-height: 58px; }
+  :root, :root[data-theme] { --topbar-height: 64px; --section-space: 32px; }
   .desktop-frame,
   .desktop-frame.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
   .desktop-main { grid-column: 1; }
-  .cloud-header { padding: 8px 12px 8px 64px; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .cloud-header { padding: 12px 16px 12px 64px; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
   .cloud-header.without-context { grid-template-columns: minmax(0, 1fr) auto; }
   .cloud-header-search { height: 40px; }
   .cloud-header-actions { gap: 4px; }
   .cloud-header-notifications { display: none; }
-  .cloud-header-user-trigger { width: var(--control-sm); padding: 0; }
+  .cloud-header-user-trigger { width: var(--control-md); padding: 0; }
   .cloud-header-user-trigger > span,
   .cloud-header-user-chevron { display: none; }
   .cloud-header-user-menu { position: fixed; top: var(--topbar-height); right: 8px; width: min(240px, calc(100vw - 16px)); }
   .cloud-header-results { position: fixed; top: var(--topbar-height); right: 8px; left: 8px; max-height: min(420px, calc(100dvh - 72px)); }
-  .cloud-footer { padding-inline: 12px; gap: 8px; }
+  .cloud-footer { padding-inline: 16px; gap: 8px; }
   .cloud-footer-product > span { display: none; }
   .cloud-footer nav { gap: 0; }
   .cloud-footer a { width: 32px; min-height: 34px; padding: 0; justify-content: center; }
-  .cloud-sidebar,
-  .cloud-sidebar.is-collapsed {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: 120;
-    width: min(304px, calc(100vw - 52px));
-    height: 100dvh;
-    padding: 12px;
-    transform: translateX(0);
-    box-shadow: var(--shadow-overlay);
-  }
-  .cloud-sidebar .cloud-sidebar-brand { padding: 4px 8px 12px; justify-content: flex-start; }
-  .cloud-sidebar .cloud-sidebar-brand-copy { display: grid; }
-  .cloud-sidebar .cloud-sidebar-parent { padding: 0 12px; }
-  .cloud-sidebar .cloud-sidebar-parent-icon { left: 12px; transform: translateY(-50%); }
-  .cloud-sidebar .cloud-sidebar-parent-label,
-  .cloud-sidebar .cloud-sidebar-chevron,
-  .cloud-sidebar .cloud-sidebar-badge,
-  .cloud-sidebar .cloud-sidebar-collapse > span:last-child { display: initial; }
-  .cloud-sidebar .cloud-sidebar-children { display: grid; }
-  .cloud-sidebar.is-collapsed {
-    width: 52px;
-    height: var(--topbar-height);
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    overflow: visible;
-  }
-  .cloud-sidebar .cloud-sidebar-brand,
-  .cloud-sidebar .cloud-sidebar-nav {
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 240ms ease 80ms, visibility 0s linear 0s;
-  }
-  .cloud-sidebar.is-collapsed .cloud-sidebar-brand,
-  .cloud-sidebar.is-collapsed .cloud-sidebar-nav {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: none;
-  }
-  .cloud-sidebar.is-collapsed .cloud-sidebar-collapse {
-    position: fixed;
-    top: 8px;
-    left: 7px;
-    width: 42px;
-    height: 42px;
-    min-height: 42px;
-    padding: 0;
-    border: 0;
-    color: #fff;
-    background: var(--primary);
-    box-shadow: var(--shadow-medium);
-  }
-  .cloud-sidebar.is-collapsed .cloud-sidebar-collapse > span:last-child { display: none; }
-  .cloud-sidebar-backdrop { position: fixed; inset: 0; z-index: 110; display: block; background: var(--overlay); backdrop-filter: blur(2px); }
+  .cloud-sidebar, .cloud-sidebar.is-collapsed { position: fixed; inset: 0 auto 0 0; z-index: 120; width: min(var(--sidebar-width), calc(100vw - 64px)); height: 100dvh; padding: 24px 16px; box-shadow: var(--shadow-overlay); }
+  .cloud-sidebar.is-collapsed { width: 64px; height: var(--topbar-height); padding: 0; background: transparent; box-shadow: none; overflow: visible; }
+  .cloud-sidebar.is-collapsed .cloud-sidebar-brand, .cloud-sidebar.is-collapsed .cloud-sidebar-nav { display: none; }
+  .cloud-sidebar.is-collapsed .cloud-sidebar-collapse { position: fixed; top: 12px; left: 12px; width: 40px; height: 40px; min-height: 40px; padding: 8px; color: var(--muted); background: var(--surface); }
+  .cloud-sidebar.is-collapsed .cloud-sidebar-collapse:hover { color: var(--text); background: var(--surface-hover); }
+  .cloud-sidebar-backdrop { position: fixed; inset: 0; z-index: 110; display: block; background: var(--overlay); }
   .module-page,
   .database-page,
-  .settings-mock-page { padding: 20px 16px 40px; }
+  .settings-mock-page { padding: 32px 16px; }
   .page-head { min-height: 0; margin-bottom: 14px; align-items: center; }
-  .page-head h1 { font-size: 24px; }
+  .page-head h1 { font-size: 40px; line-height: 1.2; }
   .page-head > div:last-child { flex: 0 1 auto; }
   .page-head > div:last-child .primary,
   .page-head > div:last-child .ghost { min-height: 40px; padding-inline: 11px; }
@@ -208,7 +147,7 @@
 @media (max-width: 480px) {
   .module-page,
   .database-page,
-  .settings-mock-page { padding-inline: 12px; }
+  .settings-mock-page { padding-inline: 16px; }
   .module-metrics { grid-template-columns: minmax(0, 1fr); }
   .module-page-databases-backups .module-metrics { grid-template-columns: minmax(0, 1fr); }
   .module-metrics article { min-height: 88px; }

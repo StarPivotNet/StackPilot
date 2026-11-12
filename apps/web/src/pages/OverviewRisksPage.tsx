@@ -2,108 +2,64 @@ import { exportOverviewRisks, fetchOverviewRisks } from "../api/overviewApi";
 import type { OverviewRiskRecord } from "../api/overviewApi";
 import { OverviewRiskDetailModal } from "../components/ui/OverviewRiskDetailModal";
 import { AlertTriangle, Clock3, Download, Eye, KeyRound, Shield, ShieldAlert } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { ModulePageShell } from "../components/layout/ModulePageShell";
 import { MetricTile } from "../components/ui/Cards";
 import { DataTable } from "../components/ui/DataTable";
 import { useOptionalOverviewData } from "../features/overview/OverviewDataProvider";
 import { reportApiError } from "../features/overview/model";
-import { useAutoRefresh } from "../hooks/useAutoRefresh";
+import { useOverviewResource } from "../features/overview/useOverviewResource";
+import { OverviewFreshness, OverviewNavigation, OverviewState } from "../features/overview/OverviewUI";
 import type { Notify, Tone } from "../types/app";
 import { formatBackendDateTime } from "../utils/time";
 
 function OverviewRisksPage({ notify }: { notify: Notify }) {
   const shared = useOptionalOverviewData();
-  const usesSharedOverview = shared !== null;
-  const [localRows, setLocalRows] = useState<OverviewRiskRecord[]>([]);
-  const [localLoading, setLocalLoading] = useState(true);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const local = useOverviewResource(fetchOverviewRisks, !shared, (reason) => reportApiError(reason, notify, "风险中心后端加载失败"));
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [localScannedAt, setLocalScannedAt] = useState<string | null>(null);
-  const rows = shared?.overview?.risks ?? localRows;
-  const loading = shared ? shared.loading && !shared.overview : localLoading;
-  const error = shared?.error ?? localError;
-  const scannedAt = formatBackendDateTime(shared?.overview?.collectedAt ?? localScannedAt, "等待采集");
+  const [exporting, setExporting] = useState(false);
+  const rows = shared?.overview?.risks ?? local.data?.risks ?? [];
+  const hasData = Boolean(shared?.overview || local.data);
+  const loading = (shared?.loading ?? local.loading) && !hasData;
+  const error = shared?.error ?? local.error;
+  const collectedAt = shared?.overview?.collectedAt ?? local.data?.scannedAt;
+  const scannedAt = formatBackendDateTime(collectedAt, "等待采集");
   const selected = rows.find((row) => row.id === selectedId) ?? null;
+  if (selectedId && !selected) setSelectedId(null);
   const openCount = rows.filter((row) => row.status === "待处理").length;
   const highCount = rows.filter((row) => row.level === "高危" && row.status === "待处理").length;
-
-  const syncRisks = useCallback((payload: Awaited<ReturnType<typeof fetchOverviewRisks>>) => {
-    setLocalRows(payload.risks);
-    setLocalScannedAt(payload.scannedAt ?? null);
-    setLocalError(null);
-  }, []);
-
-  const loadRisks = useCallback(async (signal?: AbortSignal, silent = false) => {
-    try {
-      syncRisks(await fetchOverviewRisks(signal));
-    } catch (loadError) {
-      if (signal?.aborted) return;
-      if (!silent) {
-        setLocalError(loadError instanceof Error ? loadError.message : "风险中心后端加载失败");
-        reportApiError(loadError, notify, "风险中心后端加载失败");
-      }
-    } finally {
-      if (!signal?.aborted) setLocalLoading(false);
-    }
-  }, [notify, syncRisks]);
-
-  useEffect(() => {
-    if (usesSharedOverview) return;
-    const controller = new AbortController();
-    fetchOverviewRisks(controller.signal)
-      .then((payload) => {
-        syncRisks(payload);
-        setLocalLoading(false);
-      })
-      .catch((loadError: unknown) => {
-        if (controller.signal.aborted) return;
-        setLocalError(loadError instanceof Error ? loadError.message : "风险中心后端加载失败");
-        setLocalLoading(false);
-        reportApiError(loadError, notify, "风险中心后端加载失败");
-      });
-    return () => controller.abort();
-  }, [notify, syncRisks, usesSharedOverview]);
-
-  const autoRefreshRisks = useCallback(async (signal: AbortSignal) => {
-    await loadRisks(signal, true);
-  }, [loadRisks]);
-
-  useAutoRefresh(autoRefreshRisks, undefined, !usesSharedOverview && !loading);
-
-  const retry = () => usesSharedOverview ? shared.reload() : loadRisks();
+  const retry = () => { void (shared ? shared.reload() : local.reload()); };
 
   const exportRisksFromApi = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
       const payload = await exportOverviewRisks();
       notify(payload.message, payload.tone ?? "info");
     } catch (error) {
       reportApiError(error, notify, "导出风险报告失败");
-    }
+    } finally { setExporting(false); }
   };
 
   return (
     <ModulePageShell
       title="风险中心"
-      hideHeading
+      subtitle="按等级、目标和影响判断下一步处置。"
+      tabs={<OverviewNavigation active="overview-risks" />}
+      actions={<OverviewFreshness value={collectedAt} />}
       page="overview-risks"
       viewContext={false}
-      metrics={<><MetricTile icon={Shield} label="待处理风险" value={`${openCount}`} tone={openCount ? "orange" : "green"} /><MetricTile icon={KeyRound} label="高危风险" value={`${highCount}`} tone={highCount ? "red" : "green"} /><MetricTile icon={Clock3} label="实时扫描" value={scannedAt || "-"} tone="blue" /></>}
+      metrics={<><MetricTile icon={Shield} label="待处理风险" value={hasData ? `${openCount}` : "—"} tone={openCount ? "orange" : "green"} /><MetricTile icon={KeyRound} label="高危风险" value={hasData ? `${highCount}` : "—"} tone={highCount ? "red" : "green"} /><MetricTile icon={Clock3} label="最近扫描" value={scannedAt || "-"} tone="blue" /></>}
     >
-      {loading && <span className="sr-only" role="status" aria-live="polite">正在从 /api/overview/risks 采集风险</span>}
-      {error && (
-        <div className="overview-error-state risks-error-state">
-          <ShieldAlert size={18} />
-          <span>{error}</span>
-          <button type="button" onClick={() => void retry()}>重试</button>
-        </div>
-      )}
+      {loading && <OverviewState loading title="正在采集风险" />}
+      {error && <OverviewState error={error} title="风险数据暂不可用" onRetry={retry} />}
       {selected && (
         <OverviewRiskDetailModal risk={selected} onClose={() => setSelectedId(null)} />
       )}
       <section className="risk-list-section" aria-label="风险列表">
         <div className="risk-list-toolbar" role="toolbar" aria-label="风险列表操作">
-          <button className="ghost" type="button" onClick={exportRisksFromApi}><Download size={14} /> 导出报告</button>
+          <h2>风险列表</h2>
+          <button className="ghost" type="button" onClick={exportRisksFromApi} disabled={exporting}><Download size={14} /> {exporting ? "正在导出" : "导出报告"}</button>
         </div>
         <DataTable
           columns={[
@@ -121,12 +77,12 @@ function OverviewRisksPage({ notify }: { notify: Notify }) {
             ) },
           ]}
           rows={rows}
-          emptyText={error ? "风险采集失败，未显示示例数据" : loading ? "正在采集风险" : "暂无风险"}
+          emptyText={error ? "风险数据暂不可用" : loading ? "正在采集风险" : "暂无风险"}
           getRowKey={(row) => row.id}
           mobileCard={(row) => (
             <>
               <header className="module-card-head">
-                <span className="module-card-title"><Shield size={15} /><strong>{row.title}</strong></span>
+                <span className="module-card-title"><strong>{row.title}</strong></span>
                 <RiskLevel level={row.level} />
               </header>
               <div className="module-card-meta">

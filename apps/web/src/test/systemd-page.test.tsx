@@ -17,12 +17,12 @@ describe("systemd service page", () => {
     ["systemd", "systemd 服务"],
     ["systemd-active", "Active 服务"],
     ["systemd-failed", "Failed 服务"],
-  ] as const)("removes the visible heading and summary from %s", async (page, title) => {
+  ] as const)("shows the CloudPulse heading and navigation on %s", async (page, title) => {
     const { container } = render(<SystemdPage page={page} notify={vi.fn()} />);
     await screen.findByText(/采集时间/);
-    expect(container.querySelector(".page-head")).not.toBeInTheDocument();
+    expect(container.querySelector(".page-head")).toBeInTheDocument();
     expect(container.querySelector(".module-view-context")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: title })).toHaveClass("sr-only");
+    expect(screen.getByRole("heading", { name: title })).not.toHaveClass("sr-only");
   });
   it("renders real read-only rows and opens a complete portaled drawer", async () => {
     const user = userEvent.setup(); render(<SystemdPage page="systemd" notify={vi.fn()} canOperate />); const table = await screen.findByRole("table");

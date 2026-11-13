@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.62 - 2026-11-13
+
+### Added
+
+- Exercise helper crash/restart recovery on both disposable VMs while a real SSH session remained open, then confirm credential revocation closed the transport after helper recovery.
+
 ## 0.3.0-preview.61 - 2026-11-13
 
 ### Added

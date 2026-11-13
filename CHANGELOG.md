@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.65 - 2026-11-13
+
+### Added
+
+- Complete a real Debian service-operator SSH exercise with an allowlisted fixture unit, fixed wrapper sudo, active-service confirmation and cleanup back to shell policy.
+
 ## 0.3.0-preview.64 - 2026-11-13
 
 ### Added

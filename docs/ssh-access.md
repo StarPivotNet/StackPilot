@@ -100,4 +100,6 @@ The real login-policy deadline probe then opened ordinary managed sessions on bo
 
 The Debian disposable VM also applied the explicit `host-admin` policy revision, issued a fresh managed password, and verified `sudo -n id -u` returned UID 0; the policy was then returned to `shell` and acknowledged. The service-operator profile still requires a clean real SSH exercise with an allowlisted fixture unit, so the complete profile matrix remains open.
 
+The service-operator exercise is now complete on the same disposable Debian VM: an allowlisted `profile-test.service` passed helper validation, the applied policy exposed only the fixed wrapper, a real SSH session started it through `sudo -n /usr/libexec/stackpilot-ssh-service`, and the service became active. The fixture was stopped and removed and the account returned to the acknowledged shell policy.
+
 `GET /api/ssh-helper/state` derives current authorization and termination requirements without mutating stored session state. `POST /api/ssh-helper/sessions/ack` accepts `{sessionId,connectionId}` only for the authenticated node, records backend receipt time after a helper-confirmed close, and is idempotent. The helper retains pending receipts if delivery fails; requests and actual closure remain distinct. See the [root helper workspace](../apps/ssh-helper/README.md) for its native build and validation limits.

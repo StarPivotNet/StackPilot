@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=stackpilot-agent
 Group=stackpilot-agent
-SupplementaryGroups=stackpilot-cert systemd-journal
+SupplementaryGroups=stackpilot-cert stackpilot-mesh systemd-journal
 WorkingDirectory=/opt/stackpilot-agent/current
 Environment=NODE_ENV=production
 Environment=STACKPILOT_AGENT_STATE_DIR=/var/lib/stackpilot-agent

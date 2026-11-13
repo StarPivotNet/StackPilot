@@ -8,6 +8,7 @@ import type { AgentControlRepository, AuditEvent } from "../../repositories/agen
 import { ServiceError } from "../serviceError.js";
 
 const terminal: readonly RemoteTaskStatus[] = ["succeeded", "failed", "cancelled", "expired"];
+export { terminal as terminalTaskStatuses };
 const irreversibleTypes: ReadonlySet<CreateRemoteTaskRequest["type"]> = new Set(["sites.certificates.renew", "sites.rollback"]);
 const transitions: Record<RemoteTaskStatus, readonly RemoteTaskStatus[]> = {
   queued: ["dispatched", "cancelled", "expired"], dispatched: ["running", "queued", "succeeded", "failed", "cancelled", "expired"],
@@ -23,8 +24,12 @@ const requiredCapability: Record<CreateRemoteTaskRequest["type"], AgentCapabilit
   "sites.logs.read": "sites.logs.read",
   "terminal.command.execute": "terminal.command.execute",
   "sites.certificates.renew": "sites.certificates.renew",
+  "network.mesh.status.read": "network.mesh.read",
+  "network.mesh.configure": "network.mesh.configure",
+  "network.cache.fetch": "network.transfer",
+  "network.egress.probe": "network.transfer",
 };
-const singleAttemptTypes: ReadonlySet<CreateRemoteTaskRequest["type"]> = new Set(["terminal.command.execute", "sites.plan.prepare", "sites.plan.activate", "sites.rollback", "sites.lifecycle.update", "sites.logs.read", "sites.certificates.renew"]);
+const singleAttemptTypes: ReadonlySet<CreateRemoteTaskRequest["type"]> = new Set(["terminal.command.execute", "sites.plan.prepare", "sites.plan.activate", "sites.rollback", "sites.lifecycle.update", "sites.logs.read", "sites.certificates.renew", "network.mesh.configure", "network.cache.fetch", "network.egress.probe"]);
 const audit = (event: Omit<AuditEvent, "eventId" | "timestamp">): AuditEvent => ({ eventId: randomUUID(), timestamp: new Date().toISOString(), ...event });
 const sensitiveResultKey = /authorization|cookie|token|secret|password|private|environment|stdout|stderr/i;
 function containsSensitiveKey(value: unknown): boolean {
@@ -81,16 +86,34 @@ export class RemoteTaskService {
     }
   }
 
-  async createForUser(nodeId: string, input: CreateRemoteTaskRequest, requester: string, traceId: string,
-    access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }, authorize: () => void) {
+  private assertUserAccess(nodeId: string, access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }) {
     if (!access.permissions.has("tasks:create") || (access.nodeScope !== "all" && !access.nodeScope.includes(nodeId))) {
       throw new ServiceError(403, "FORBIDDEN", "任务权限不足或节点超出授权范围");
     }
+  }
+
+  async createForUser(nodeId: string, input: CreateRemoteTaskRequest, requester: string, traceId: string,
+    access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }, authorize: () => void) {
+    this.assertUserAccess(nodeId, access);
     // Site tasks must also pass plan, protection and operation-lock checks in the site service.
     if (input.type.startsWith("sites.")) throw new ServiceError(403, "FORBIDDEN", "站点任务只能通过对应的站点业务接口创建");
     if (input.type === "terminal.command.execute" && !access.permissions.has("terminal:execute")) {
       throw new ServiceError(403, "FORBIDDEN", "缺少终端执行权限");
     }
+    // An egress target comes from the Controller's own quality table; a caller may not name one.
+    if (input.type === "network.cache.fetch" && "egress" in (input.parameters as Record<string, unknown>)) {
+      throw new ServiceError(403, "FORBIDDEN", "出口节点只能由 Controller 按出口质量表选择");
+    }
+    return this.create(nodeId, input, requester, traceId, authorize);
+  }
+
+  /**
+   * Controller-originated fill: the same caller checks as a user task, but the parameters carry the
+   * egress the Controller selected, so this path is never reachable from a request body.
+   */
+  async createWithEgress(nodeId: string, input: CreateRemoteTaskRequest, requester: string, traceId: string,
+    access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }, authorize: () => void) {
+    this.assertUserAccess(nodeId, access);
     return this.create(nodeId, input, requester, traceId, authorize);
   }
 

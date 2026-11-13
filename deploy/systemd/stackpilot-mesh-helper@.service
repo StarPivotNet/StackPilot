@@ -1,0 +1,40 @@
+[Unit]
+Description=StackPilot mesh helper connection
+Requires=stackpilot-mesh-helper.socket
+After=stackpilot-mesh-helper.socket
+
+[Service]
+Type=exec
+User=root
+Group=root
+WorkingDirectory=/opt/stackpilot-mesh-helper/current
+Environment=STACKPILOT_MESH_INTERFACE=wg0
+Environment=STACKPILOT_MESH_STATE_DIR=/var/lib/stackpilot-mesh
+ExecStart=/usr/bin/flock --exclusive /var/lib/stackpilot-mesh/operation.lock /usr/bin/node /opt/stackpilot-mesh-helper/current/apps/mesh-helper/dist/main.js
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+TimeoutStartSec=60s
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+ProtectProc=invisible
+RemoveIPC=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+ReadWritePaths=/var/lib/stackpilot-mesh

@@ -8,6 +8,8 @@ import { PageTransition } from "./PageTransition";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { SettingsProxyPage } from "../../features/settings/SettingsProxyPage";
+import { MeshTopologyPage } from "../../pages/MeshTopologyPage";
+import { MeshCachePage } from "../../pages/MeshCachePage";
 import { OverviewDataProvider, useOverviewData } from "../../features/overview/OverviewDataProvider";
 import { AclPage } from "../../pages/AclPage";
 import { AuditPage } from "../../pages/AuditPage";
@@ -224,7 +226,11 @@ function DesktopShellContent({
             {page === "overview-health" && <OverviewHealthPage notify={notify} />}
             {page === "overview-tasks" && <OverviewTasksPage notify={notify} setPage={setPage} />}
             {page === "overview-risks" && <OverviewRisksPage notify={notify} />}
-            {activeModule === "hosts" && <HostsPage page={page} notify={notify} />}
+            {page === "hosts-mesh" && user.permissions.includes("nodes:read") && <MeshTopologyPage />}
+            {page === "hosts-cache" && user.permissions.includes("nodes:read") && <MeshCachePage />}
+            {page === "hosts-cache" && !user.permissions.includes("nodes:read") && <section className="module-page"><div className="page-head"><div><h1>共享缓存</h1><p className="page-subtitle">当前账号没有节点读取权限，无法查看共享缓存指标。</p></div></div></section>}
+            {page === "hosts-mesh" && !user.permissions.includes("nodes:read") && <section className="module-page"><div className="page-head"><div><h1>组网拓扑</h1><p className="page-subtitle">当前账号没有节点读取权限，无法查看共享网络状态。</p></div></div></section>}
+            {activeModule === "hosts" && page !== "hosts-mesh" && page !== "hosts-cache" && <HostsPage page={page} notify={notify} />}
             {activeModule === "sites" && <SitesPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "databases" && (
               page === "databases-backups"

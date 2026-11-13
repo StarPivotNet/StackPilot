@@ -4,8 +4,12 @@ import { randomUUID } from "node:crypto";
 import {
   AGENT_PROTOCOL_VERSION, AGENT_TASK_CONCURRENCY, AgentEnrollmentResponseSchema, AgentHeartbeatResponseSchema, RemoteTaskPollResponseSchema, RotateCredentialResponseSchema,
   type AgentEnrollmentRequest,
+  type NetworkMeshLink,
 } from "@stackpilot/contracts";
 import { activeAgentCapabilities } from "./capabilities/index.js";
+import { openAgentCache } from "./cache/runtime.js";
+import { PeerDirectory, PEER_DIRECTORY_PATH } from "./dataPlane/peers.js";
+import { DataPlaneRuntime, setAgentIdentity, setAgentPeerDirectory } from "./dataPlane/runtime.js";
 import { loadAgentConfig } from "./config/environment.js";
 import { createHeartbeat } from "./heartbeat/heartbeat.js";
 import { IdentityStore, type AgentIdentity } from "./identity/identityStore.js";
@@ -20,6 +24,7 @@ import { terminalCommandsAvailable } from "./tasks/handlers/terminalCommand.js";
 import { ControllerClient } from "./transport/controllerClient.js";
 import { DatabaseHelperClient } from "./databases/helperClient.js";
 import { DatabaseAgentRuntime } from "./databases/runtime.js";
+import { readMeshIdentity, readMeshLink } from "./mesh/helperClient.js";
 import { assertAgentPrivilegeBoundary } from "./security/privilege.js";
 import { FileDatabaseOperationOutbox } from "./databases/operationOutbox.js";
 import { SystemdCollector, SystemdSnapshotCache } from "./systemd/systemdCollector.js";
@@ -56,15 +61,24 @@ export async function runAgent(env: NodeJS.ProcessEnv | Record<string, string | 
   const databaseHelper = new DatabaseHelperClient(config.databaseHelperSocket);
   let databaseHelperReady = config.platform === "linux" && await databaseHelper.available();
   const terminalCommandsReady = config.platform === "linux" && terminalCommandsAvailable();
+  const meshIdentityAtStart = config.platform === "linux" ? await readMeshIdentity() : null;
+  // A cache that cannot open its directory is simply not advertised, so no task can target it.
+  const cache = config.platform === "linux" ? await openAgentCache().catch(() => null) : null;
   let capabilities = activeAgentCapabilities(
     config.platform,
     config.platform === "linux" && await certHelperAvailable(),
     false,
     terminalCommandsReady,
     databaseHelperReady,
+    meshIdentityAtStart !== null,
+    cache !== null,
   );
   let identity = await ensureIdentity(store, client, config, capabilities);
   if (config.rotateCredential) { identity = await rotateIdentity(store, client, identity); if (env === process.env) delete process.env.STACKPILOT_AGENT_ROTATE_CREDENTIAL; }
+  setAgentIdentity(identity);
+  const peerDirectory = new PeerDirectory(() => client.get(PEER_DIRECTORY_PATH, identity));
+  setAgentPeerDirectory(peerDirectory);
+  const dataPlane = cache ? new DataPlaneRuntime(identity.nodeId, cache, peerDirectory, (record) => agentLogger.log({ level: record.level, time: new Date().toISOString(), message: record.message })) : null;
   const executor = new TaskExecutor(store.receiptPath, identity.nodeId, config.platform, capabilities); await executor.load();
   const databaseRuntime = new DatabaseAgentRuntime(
     databaseHelper, client, identity, config.databaseCollectionSeconds * 1000,
@@ -77,16 +91,22 @@ export async function runAgent(env: NodeJS.ProcessEnv | Record<string, string | 
   const systemdSnapshots = new SystemdSnapshotCache(new SystemdCollector(), config.platform);
   const firewallDenySnapshots = new FirewallDenySnapshotCache(new FirewallDenyCollector(), config.platform);
   let failures = 0;
+  let meshIdentity = meshIdentityAtStart;
+  let meshLink: NetworkMeshLink | null = null;
   while (!signal?.aborted) {
     try {
       const databaseInventorySupported = client.supportsDatabaseInventory();
       databaseHelperReady = config.platform === "linux" && await databaseHelper.available();
+      meshIdentity = config.platform === "linux" ? await readMeshIdentity() : null;
+      meshLink = meshIdentity ? await readMeshLink() : null;
       capabilities = activeAgentCapabilities(
         config.platform,
         config.platform === "linux" && await certHelperAvailable(),
         databaseInventorySupported,
         terminalCommandsReady,
         databaseHelperReady,
+        meshIdentity !== null,
+        cache !== null,
       );
       executor.setCapabilities(capabilities);
       let telemetryCollectionFailed = false;
@@ -100,7 +120,12 @@ export async function runAgent(env: NodeJS.ProcessEnv | Record<string, string | 
       const advertisedPhysicalHostId = client.supportsPhysicalHostIdentity() ? physicalHostId ?? undefined : undefined;
       const advertisedSystemdSnapshot = client.supportsSystemdSnapshot() ? systemdSnapshots.current : undefined;
       const advertisedFirewallDenySnapshot = client.supportsFirewallDenySnapshot() ? firewallDenySnapshots.current : undefined;
-      AgentHeartbeatResponseSchema.parse(await client.json("/api/agent/heartbeat", createHeartbeat(config, identity.nodeId, capabilities, telemetry, telemetryCollectionFailed, siteSnapshots.current, fallbackDatabaseSnapshot, advertisedPhysicalHostId, advertisedSystemdSnapshot, advertisedFirewallDenySnapshot), identity));
+      const cacheStats = cache ? await cache.stats().catch(() => undefined) : undefined;
+      AgentHeartbeatResponseSchema.parse(await client.json("/api/agent/heartbeat", createHeartbeat(config, identity.nodeId, capabilities, telemetry, telemetryCollectionFailed, siteSnapshots.current, fallbackDatabaseSnapshot, advertisedPhysicalHostId, advertisedSystemdSnapshot, advertisedFirewallDenySnapshot, meshIdentity ? { ...meshIdentity, link: meshLink } : undefined, cacheStats), identity));
+      if (dataPlane) {
+        await peerDirectory.refresh().catch((error) => agentLogger.log({ level: "warn", time: new Date().toISOString(), message: "Peer directory refresh failed", errorName: error instanceof Error ? error.name : "UnknownError" }));
+        await dataPlane.sync();
+      }
       await flushTaskUpdates(executor, (pending) => client.json("/api/agent/tasks/status", pending, identity), (taskId, error) => {
         agentLogger.log({ level: "warn", time: new Date().toISOString(), message: "Task result delivery failed; receipt retained", taskId, errorName: error instanceof Error ? error.name : "UnknownError" });
       });
@@ -121,6 +146,7 @@ export async function runAgent(env: NodeJS.ProcessEnv | Record<string, string | 
     }
   }
   await databaseLoop;
+  await dataPlane?.stop("shutdown");
 }
 
 const isMainModule = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

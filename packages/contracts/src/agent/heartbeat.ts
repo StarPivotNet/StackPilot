@@ -3,6 +3,8 @@ import { AgentHeartbeatDatabaseSnapshotSchema } from "../databases/index.js";
 import { AgentSiteSnapshotSchema } from "../sites/index.js";
 import { ProtocolVersionSchema } from "../versioning/index.js";
 import { AgentCapabilitiesSchema, AgentPlatformSchema } from "./capabilities.js";
+import { NetworkMeshHeartbeatSchema } from "./mesh.js";
+import { NetworkCacheStatsSchema } from "./cache.js";
 import { PhysicalHostIdSchema } from "./physicalIdentity.js";
 import { AgentSystemdSnapshotSchema } from "../systemd/index.js";
 import { AgentFirewallDenySnapshotSchema } from "../firewall/index.js";
@@ -74,6 +76,8 @@ export const AgentHeartbeatSchema = z.object({
   databaseSnapshot: AgentHeartbeatDatabaseSnapshotSchema.optional(),
   systemdSnapshot: AgentSystemdSnapshotSchema.optional(),
   firewallDenySnapshot: AgentFirewallDenySnapshotSchema.optional(),
+  mesh: NetworkMeshHeartbeatSchema.optional(),
+  cache: NetworkCacheStatsSchema.optional(),
 }).strict();
 
 export const AgentHeartbeatResponseSchema = z.object({

@@ -21,7 +21,10 @@ import {
   FirewallOpenPortsPayloadSchema,
   CreateDirectoryRequestSchema,
   UpdateNodeCapabilitiesRequestSchema, AuditEventsQuerySchema, AuditEventsResponseSchema,
+  AgentCapabilitySchema, AgentCapabilitiesSchema,
   AgentFirewallDenySnapshotSchema, FirewallDenyRecordsPayloadSchema,
+  NetworkMeshStatusDataSchema, NetworkMeshPlanResponseSchema, NetworkMeshLinkSchema,
+  NetworkCacheStatsSchema, NetworkCachePlanResponseSchema,
 } from "@stackpilot/contracts";
 
 test("shared API constants preserve the existing HTTP contract", () => {
@@ -98,6 +101,11 @@ test("node capability updates accept the complete shared Agent capability set", 
   assert.deepEqual(UpdateNodeCapabilitiesRequestSchema.parse({ allowedCapabilities }).allowedCapabilities, allowedCapabilities);
   assert.equal(UpdateNodeCapabilitiesRequestSchema.safeParse({ allowedCapabilities: ["database.shell"] }).success, false);
   assert.equal(UpdateNodeCapabilitiesRequestSchema.safeParse({ allowedCapabilities: ["database.backup", "database.backup"] }).success, false);
+  const meshCapabilities = ["network.mesh.read", "network.mesh.configure", "network.cache.read", "network.transfer"];
+  assert.deepEqual(UpdateNodeCapabilitiesRequestSchema.parse({ allowedCapabilities: meshCapabilities }).allowedCapabilities, meshCapabilities);
+  const declaredCapabilities = AgentCapabilitySchema.options;
+  assert.deepEqual(AgentCapabilitiesSchema.parse(declaredCapabilities), declaredCapabilities);
+  assert.equal(AgentCapabilitiesSchema.safeParse([...declaredCapabilities, meshCapabilities[0]]).success, false);
 });
 
 test("remote task history accepts collection timestamps from upgraded Controllers", () => {
@@ -349,6 +357,64 @@ test("terminal snippet contracts reject browser-supplied commands", () => {
   const request = { nodeId: crypto.randomUUID(), snippetVersion: 1, idempotencyKey: "terminal-contract-1" };
   assert.equal(ExecuteTerminalSnippetRequestSchema.safeParse(request).success, true);
   assert.equal(ExecuteTerminalSnippetRequestSchema.safeParse({ ...request, command: "id" }).success, false);
+});
+
+test("mesh status contracts reject non-overlay peers and command-shaped parameters", () => {
+  const key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  const now = new Date().toISOString();
+  const peer = { publicKey: key, overlayAddress: "100.64.0.2", endpoint: "203.0.113.7:51820", latestHandshakeAt: now, handshakeAgeSeconds: 5, receivedBytes: 1, sentBytes: 2 };
+  const data = { collectedAt: now, collectionStatus: "complete", warnings: [], interface: { name: "wg0", present: true, listenPort: 51820, mtu: 1420, publicKey: key, peerCount: 1 }, peers: [peer], firewall: { enforced: true, dataPlanePort: 18_080 } };
+  assert.equal(NetworkMeshStatusDataSchema.safeParse(data).success, true);
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, peers: [{ ...peer, overlayAddress: "10.8.0.2" }] }).success, false);
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, peers: [{ ...peer, publicKey: "short" }] }).success, false);
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, interface: { ...data.interface, listenPort: 0 } }).success, false);
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, collectionStatus: "stale" }).success, false);
+  // A helper upgraded ahead of the Agent omits `firewall`; the Agent then reports null.
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, firewall: undefined }).success, true);
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, firewall: null }).success, true);
+  assert.equal(NetworkMeshStatusDataSchema.safeParse({ ...data, firewall: { enforced: true, dataPlanePort: 0 } }).success, false);
+  const request = { type: "network.mesh.status.read", parameters: {}, expiresInSeconds: 30, idempotencyKey: "mesh-status-1" };
+  assert.equal(CreateRemoteTaskRequestSchema.safeParse(request).success, true);
+  assert.equal(CreateRemoteTaskRequestSchema.safeParse({ ...request, parameters: { path: "/etc/wireguard/wg0.conf" } }).success, false);
+  assert.equal(CreateRemoteTaskRequestSchema.safeParse({ ...request, parameters: { command: "wg show" } }).success, false);
+});
+
+test("cache contracts keep the fill request narrow and the plan honest about unreported nodes", () => {
+  const updatedAt = new Date().toISOString();
+  const stats = { collectedAt: updatedAt, capacityBytes: 5 * 1024 ** 3, usedBytes: 1024 ** 3, entryCount: 3, hits: 4, misses: 2, evictions: 1, diskFreeBytes: 8 * 1024 ** 3 };
+  assert.equal(NetworkCacheStatsSchema.safeParse(stats).success, true);
+  assert.equal(NetworkCacheStatsSchema.safeParse({ ...stats, diskFreeBytes: null }).success, true);
+  assert.equal(NetworkCacheStatsSchema.safeParse({ ...stats, usedBytes: -1 }).success, false);
+  assert.equal(NetworkCacheStatsSchema.safeParse({ ...stats, collectedAt: "yesterday" }).success, false);
+  const node = { nodeId: "11111111-1111-4111-8111-111111111111", nodeName: "edge-a", status: "ready", stats };
+  const plan = { updatedAt, nodes: [node, { ...node, nodeName: "edge-b", status: "pending", stats: null }], warnings: [] };
+  assert.equal(NetworkCachePlanResponseSchema.safeParse(plan).success, true);
+  assert.equal(NetworkCachePlanResponseSchema.safeParse({ ...plan, nodes: [{ ...node, status: "warming" }] }).success, false);
+  assert.equal(NetworkCachePlanResponseSchema.safeParse({ ...plan, nodes: [{ ...node, stats: null }] }).success, true);
+  const request = { type: "network.cache.fetch", parameters: { url: "https://example.com/layer.tgz" }, idempotencyKey: "cache-fill-1" };
+  assert.equal(CreateRemoteTaskRequestSchema.parse(request).expiresInSeconds, 900);
+  for (const parameters of [{ url: "http://example.com/a" }, { url: "https://example.com/a", destination: "/opt/a" }, { url: "https://example.com/a", digest: "abc" }]) {
+    assert.equal(CreateRemoteTaskRequestSchema.safeParse({ ...request, parameters }).success, false, JSON.stringify(parameters));
+  }
+});
+
+test("a plan or link from an older peer still parses without the interface up field", () => {
+  const updatedAt = new Date().toISOString();
+  const node = {
+    nodeId: "11111111-1111-4111-8111-111111111111", nodeName: "edge-a", status: "ready",
+    overlayAddress: "100.64.1.4", publicKey: null, configuredRevision: 1,
+    handshake: { collectedAt: updatedAt, ageSeconds: 5, peerCount: 1, activePeerCount: 1 },
+    firewallEnforced: true, dataPlanePort: 18_080,
+  };
+  const plan = { revision: 1, overlayCidr: "100.64.0.0/10", listenPort: 51_820, updatedAt, nodes: [node], warnings: [] };
+  // A Web build that leads its Controller must degrade, not fail the whole page on a ZodError.
+  assert.equal(NetworkMeshPlanResponseSchema.safeParse(plan).success, true);
+  assert.equal(NetworkMeshPlanResponseSchema.safeParse({ ...plan, nodes: [{ ...node, interfaceUp: null }] }).success, true);
+  assert.equal(NetworkMeshPlanResponseSchema.safeParse({ ...plan, nodes: [{ ...node, interfaceUp: false }] }).success, true);
+  assert.equal(NetworkMeshPlanResponseSchema.safeParse({ ...plan, nodes: [{ ...node, interfaceUp: "up" }] }).success, false);
+  const link = { collectedAt: updatedAt, peerCount: 1, activePeerCount: 1, latestHandshakeAt: updatedAt };
+  assert.equal(NetworkMeshLinkSchema.safeParse(link).success, true);
+  assert.equal(NetworkMeshLinkSchema.safeParse({ ...link, interfaceUp: false }).success, true);
 });
 
 test("file contracts reject unsafe names and non-virtual paths",()=>{

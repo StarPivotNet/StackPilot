@@ -26,6 +26,9 @@ import { DatabaseMonitoringService } from "./modules/databases/databaseMonitorin
 import { DatabaseBackupService } from "./modules/databases/databaseBackupService.js";
 import { NginxSiteCollector } from "./platform/siteCollector.js";
 import { RemoteTaskService } from "./modules/remote-tasks/remoteTaskService.js";
+import { MeshService } from "./modules/network/meshService.js";
+import { CacheService } from "./modules/network/cacheService.js";
+import { EgressService } from "./modules/network/egressService.js";
 import { TerminalSnippetService } from "./modules/terminal/terminalSnippetService.js";
 import { MemoryTerminalSnippetRepository, SqliteTerminalSnippetRepository } from "./modules/terminal/terminalSnippetRepository.js";
 import { NativePlatformAdapter } from "./platform/nativeAdapter.js";
@@ -113,6 +116,9 @@ export function createControllerServices(
     ? new SqliteDatabaseRepository(database, parseMasterKey(config.masterKey))
     : undefined;
   const nodes = new NodeService(repository);
+  const mesh = new MeshService(repository, remoteTasks);
+  const cache = new CacheService(repository);
+  const egress = new EgressService(repository, remoteTasks, { targets: config.egressProbeTargets });
   let managedSsh = database ? sshServices.get(database) : undefined;
   if (!managedSsh && database && audit) {
     const ssh = new SshService(database, audit), verifier = new SshTakeoverVerifier(ssh);
@@ -144,6 +150,9 @@ export function createControllerServices(
     enrollments: new EnrollmentService(repository),
     nodes,
     remoteTasks,
+    mesh,
+    cache,
+    egress,
     terminalSnippets: new TerminalSnippetService(terminalRepository, remoteTasks),
     systemd: new SystemdService(repository),
     firewall: new FirewallService(),

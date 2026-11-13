@@ -53,6 +53,7 @@ const environmentSchema = z.object({
   STACKPILOT_AGENT_TLS_KEY_PATH: z.string().optional(),
   STACKPILOT_AGENT_STATE_PATH: z.string().default(".stackpilot/controller-agent-state.json"),
   STACKPILOT_TRUSTED_PROXIES: z.string().default(""),
+  STACKPILOT_EGRESS_PROBE_TARGETS: z.string().default(""),
   STACKPILOT_PRODUCTION: z.enum(["0", "1"]).default("0"),
   STACKPILOT_PROTECTED_SITE_IDS: z.string().default(""),
 }).passthrough();
@@ -84,6 +85,8 @@ export type ControllerConfig = {
   agentTlsKeyPath?: string;
   agentStatePath: string;
   trustedProxies: string[];
+  /** Sources the Controller asks every node to measure; empty disables egress probing entirely. */
+  egressProbeTargets: string[];
   production: boolean;
   protectedSiteIds: string[];
 };
@@ -93,6 +96,8 @@ export function loadControllerConfig(env: NodeJS.ProcessEnv | Record<string, str
   if(parsed.STACKPILOT_MASTER_KEY&&parsed.STACKPILOT_MASTER_KEY_FILE)throw new Error("STACKPILOT_MASTER_KEY 与 STACKPILOT_MASTER_KEY_FILE 不能同时配置");
   if (Boolean(parsed.STACKPILOT_AGENT_TLS_CERT_PATH) !== Boolean(parsed.STACKPILOT_AGENT_TLS_KEY_PATH)) throw new Error("Agent TLS certificate and key must be configured together");
   const trustedProxies=parsed.STACKPILOT_TRUSTED_PROXIES.split(",").map((value)=>value.trim()).filter(Boolean);
+  const egressProbeTargets=parsed.STACKPILOT_EGRESS_PROBE_TARGETS.split(",").map((value)=>value.trim()).filter(Boolean);
+  for(const target of egressProbeTargets){try{const url=new URL(target);if(url.protocol!=="https:"||url.origin!==target)throw new Error();}catch{throw new Error("STACKPILOT_EGRESS_PROBE_TARGETS 必须是完整的 HTTPS 来源且不能包含路径");}}
   for(const entry of trustedProxies)if(!/^(?:\d{1,3}\.){3}\d{1,3}(?:\/(?:[0-9]|[12][0-9]|3[0-2]))?$/.test(entry)&&!/^[:0-9a-f]+(?:\/(?:\d|[1-9]\d|1[01]\d|12[0-8]))?$/i.test(entry))throw new Error("STACKPILOT_TRUSTED_PROXIES 必须是 IP 或 CIDR");
   if(parsed.STACKPILOT_PRODUCTION==="1"&&parsed.STACKPILOT_COOKIE_SECURE!=="1")throw new Error("生产模式必须使用 Secure Cookie");
   return {
@@ -122,6 +127,7 @@ export function loadControllerConfig(env: NodeJS.ProcessEnv | Record<string, str
     ...(parsed.STACKPILOT_AGENT_TLS_KEY_PATH ? { agentTlsKeyPath: parsed.STACKPILOT_AGENT_TLS_KEY_PATH } : {}),
     agentStatePath: parsed.STACKPILOT_AGENT_STATE_PATH,
     trustedProxies,
+    egressProbeTargets,
     production:parsed.STACKPILOT_PRODUCTION==="1",
     protectedSiteIds: parsed.STACKPILOT_PROTECTED_SITE_IDS.split(",").map((value) => value.trim()).filter((value) => /^[A-Za-z0-9:_-]{8,160}$/.test(value)),
   };

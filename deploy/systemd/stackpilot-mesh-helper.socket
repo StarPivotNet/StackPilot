@@ -1,0 +1,14 @@
+[Unit]
+Description=StackPilot mesh helper socket
+
+[Socket]
+ListenStream=/run/stackpilot-mesh/helper.sock
+SocketUser=root
+SocketGroup=stackpilot-mesh
+SocketMode=0660
+DirectoryMode=0750
+Accept=yes
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

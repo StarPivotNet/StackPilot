@@ -18,7 +18,7 @@ test("service status tasks reject systemctl option injection", () => {
 });
 
 test("task registry exposes only structured handlers and keeps side effects non-retryable", () => {
-  assert.deepEqual(Object.keys(taskRegistry).sort(), ["service.status.read", "sites.certificates.renew", "sites.lifecycle.update", "sites.logs.read", "sites.plan.activate", "sites.plan.prepare", "sites.rollback", "system.summary.read", "terminal.command.execute"]);
+  assert.deepEqual(Object.keys(taskRegistry).sort(), ["network.cache.fetch", "network.egress.probe", "network.mesh.configure", "network.mesh.status.read", "service.status.read", "sites.certificates.renew", "sites.lifecycle.update", "sites.logs.read", "sites.plan.activate", "sites.plan.prepare", "sites.rollback", "system.summary.read", "terminal.command.execute"]);
   assert.ok(Object.values(taskRegistry).every((definition) => definition.maxOutputBytes <= 16_384));
   assert.ok(Object.keys(taskRegistry).every((name) => !/shell/i.test(name)));
   assert.equal(taskRegistry["system.summary.read"].timeoutMs, 6_000);
@@ -28,6 +28,7 @@ test("task registry exposes only structured handlers and keeps side effects non-
   assert.equal(taskRegistry["sites.rollback"].capability, "sites.deploy"); assert.equal(taskRegistry["sites.rollback"].retryable, false); assert.equal(taskRegistry["sites.rollback"].cancellable, false);
   assert.equal(taskRegistry["sites.lifecycle.update"].capability, "sites.lifecycle.manage"); assert.equal(taskRegistry["sites.lifecycle.update"].retryable, false);
   assert.equal(taskRegistry["sites.logs.read"].capability, "sites.logs.read"); assert.equal(taskRegistry["sites.logs.read"].retryable, false);
+  assert.equal(taskRegistry["network.egress.probe"].capability, "network.transfer"); assert.equal(taskRegistry["network.egress.probe"].retryable, false); assert.equal(taskRegistry["network.egress.probe"].cancellable, true); assert.deepEqual(taskRegistry["network.egress.probe"].platforms, ["linux"]);
 });
 
 test("site mutations require a Linux helper and terminal commands require fixed executables", () => {

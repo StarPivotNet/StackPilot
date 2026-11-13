@@ -60,6 +60,11 @@ export class NodeService {
       if (heartbeat.databaseSnapshot) node.databaseSnapshot = heartbeat.databaseSnapshot;
       if (heartbeat.systemdSnapshot) node.systemdSnapshot = heartbeat.systemdSnapshot;
       if (heartbeat.firewallDenySnapshot) node.firewallDenySnapshot = heartbeat.firewallDenySnapshot;
+      if (heartbeat.mesh) {
+        node.meshIdentity = { interfaceName: heartbeat.mesh.interfaceName, publicKey: heartbeat.mesh.publicKey, configuredRevision: heartbeat.mesh.configuredRevision };
+        node.meshLink = heartbeat.mesh.link ?? undefined;
+      }
+      if (heartbeat.cache) node.cacheStats = heartbeat.cache;
       const physicalHostIdentity = heartbeat.physicalHostId === undefined ? "legacy"
         : previousPhysicalHostId === heartbeat.physicalHostId
         ? "unchanged"

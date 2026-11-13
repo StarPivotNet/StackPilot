@@ -1,12 +1,13 @@
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { AgentCapability, AgentDatabaseSnapshot, AgentFirewallDenySnapshot, AgentHeartbeat, AgentNodeRecord, AgentSiteSnapshot, AgentSystemdSnapshot, AgentTelemetrySnapshot, PhysicalHostId, RemoteTaskRecord } from "@stackpilot/contracts";
-import { AgentFirewallDenySnapshotSchema, AgentHeartbeatDatabaseSnapshotSchema, AgentHealthSchema, AgentNodeRecordSchema, AgentSiteSnapshotSchema, AgentSystemdSnapshotSchema, AgentTelemetrySnapshotSchema, PhysicalHostIdSchema, RemoteTaskRecordSchema } from "@stackpilot/contracts";
+import type { AgentCapability, AgentDatabaseSnapshot, AgentFirewallDenySnapshot, AgentHeartbeat, AgentNodeRecord, AgentSiteSnapshot, AgentSystemdSnapshot, AgentTelemetrySnapshot, NetworkCacheStats, NetworkMeshIdentity, NetworkMeshLink, PhysicalHostId, RemoteTaskRecord } from "@stackpilot/contracts";
+import { AgentFirewallDenySnapshotSchema, AgentHeartbeatDatabaseSnapshotSchema, AgentHealthSchema, AgentNodeRecordSchema, AgentSiteSnapshotSchema, AgentSystemdSnapshotSchema, AgentTelemetrySnapshotSchema, NetworkCacheStatsSchema, NetworkMeshIdentitySchema, NetworkMeshLinkSchema, NetworkMeshOverlayAddressSchema, PhysicalHostIdSchema, RemoteTaskRecordSchema } from "@stackpilot/contracts";
 import { z } from "zod";
 
 export type EnrollmentState = { enrollmentId: string; tokenDigest: string; nodeName: string; expiresAt: string; usedAt: string | null; revokedAt: string | null };
 export type AgentCredentialState = { credentialId: string; nodeId: string; publicKey: string; createdAt: string; revokedAt: string | null; replacedBy: string | null; rotationId: string | null };
-export type AgentNodeState = AgentNodeRecord & { physicalHostId?: PhysicalHostId; telemetry?: AgentTelemetrySnapshot; siteSnapshot?: AgentSiteSnapshot; databaseSnapshot?: AgentDatabaseSnapshot; systemdSnapshot?: AgentSystemdSnapshot; firewallDenySnapshot?: AgentFirewallDenySnapshot; heartbeatHealthStatus?: AgentHeartbeat["health"]["status"] };
+export type AgentMeshAssignment = { overlayAddress: string; revision: number };
+export type AgentNodeState = AgentNodeRecord & { physicalHostId?: PhysicalHostId; telemetry?: AgentTelemetrySnapshot; siteSnapshot?: AgentSiteSnapshot; databaseSnapshot?: AgentDatabaseSnapshot; systemdSnapshot?: AgentSystemdSnapshot; firewallDenySnapshot?: AgentFirewallDenySnapshot; meshAssignment?: AgentMeshAssignment; meshIdentity?: NetworkMeshIdentity; meshLink?: NetworkMeshLink; cacheStats?: NetworkCacheStats; heartbeatHealthStatus?: AgentHeartbeat["health"]["status"] };
 export const AgentNodeStateSchema = AgentNodeRecordSchema.extend({
   physicalHostId: PhysicalHostIdSchema.optional(),
   telemetry: AgentTelemetrySnapshotSchema.optional(),
@@ -14,6 +15,10 @@ export const AgentNodeStateSchema = AgentNodeRecordSchema.extend({
   databaseSnapshot: AgentHeartbeatDatabaseSnapshotSchema.optional(),
   systemdSnapshot: AgentSystemdSnapshotSchema.optional(),
   firewallDenySnapshot: AgentFirewallDenySnapshotSchema.optional(),
+  meshAssignment: z.object({ overlayAddress: NetworkMeshOverlayAddressSchema, revision: z.number().int().min(0).max(2_147_483_647) }).strict().optional(),
+  meshIdentity: NetworkMeshIdentitySchema.optional(),
+  meshLink: NetworkMeshLinkSchema.optional(),
+  cacheStats: NetworkCacheStatsSchema.optional(),
   heartbeatHealthStatus: AgentHealthSchema.shape.status.optional(),
 });
 export type AgentNonceConsumption = "accepted" | "replayed" | "unauthorized";
@@ -183,5 +188,6 @@ export const CONTROLLER_SUPPORTED_AGENT_CAPABILITIES: readonly AgentCapability[]
   "system.summary.read", "service.status.read", "sites.inventory.read", "sites.logs.read",
   "terminal.command.execute", "sites.deploy", "sites.lifecycle.manage", "sites.certificates.renew", "runtime.install", "databases.inventory.read",
   "database.inventory.read", "database.sql.read", "database.backup", "database.operate", "database.install", "database.restore",
+  "network.mesh.read", "network.mesh.configure", "network.cache.read", "network.transfer",
 ];
 export const DEFAULT_AGENT_CAPABILITIES: readonly AgentCapability[] = ["system.summary.read", "service.status.read", "sites.inventory.read", "databases.inventory.read"];

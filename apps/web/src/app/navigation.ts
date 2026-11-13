@@ -31,6 +31,8 @@ const pageMeta: Record<string, PageMeta> = {
   "overview-tasks": { title: "任务流", breadcrumb: "工作台", search: "搜索设备任务、服务、计划任务..." },
   "overview-risks": { title: "风险中心", breadcrumb: "工作台", search: "搜索风险、主机、对象..." },
   hosts: { title: "主机", breadcrumb: "资源管理", search: "搜索主机名、IP、环境..." },
+  "hosts-mesh": { title: "组网拓扑", breadcrumb: "主机", search: "搜索节点、共享地址、握手状态..." },
+  "hosts-cache": { title: "共享缓存", breadcrumb: "主机", search: "搜索节点、缓存占用、命中率..." },
   sites: { title: "网站", breadcrumb: "应用管理", search: "搜索域名、服务、证书..." },
   "sites-create": { title: "部署站点", breadcrumb: "网站", search: "搜索部署计划..." },
   databases: { title: "数据库管理", breadcrumb: "资源管理", search: "搜索数据库名称" },
@@ -81,6 +83,8 @@ const navItems: NavItem[] = [
     children: [
       { id: "hosts-prod", label: "生产环境", meta: "按环境筛选" },
       { id: "hosts-alert", label: "健康告警", meta: "按状态筛选" },
+      { id: "hosts-mesh", label: "组网拓扑", meta: "共享网络与握手", page: "hosts-mesh" },
+      { id: "hosts-cache", label: "共享缓存", meta: "内容寻址与命中", page: "hosts-cache" },
     ],
   },
   {
@@ -268,6 +272,7 @@ function navItemsForPermissions(permissions: readonly Permission[]) {
     if (item.key === "sites") {
       return [...visible, { ...item, children: item.children.filter((child) => child.id !== "sites-create" || permissions.includes("sites:deploy")) }];
     }
+    if (item.key === "hosts") return [...visible, { ...item, children: item.children.filter((child) => child.id !== "hosts-mesh" || permissions.includes("nodes:read")) }];
     if (item.key !== "databases") return [...visible, item];
     const children = item.children.filter((child) => {
       if (child.id === "databases-backups") return permissions.includes("databases:backup");

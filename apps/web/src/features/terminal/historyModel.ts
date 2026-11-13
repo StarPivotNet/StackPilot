@@ -14,6 +14,7 @@ const statuses: Record<RemoteTaskStatus, Pick<TerminalHistoryView, "status" | "t
 };
 
 function actionLabel(task: RemoteTaskRecord) {
+  if (task.type === "network.mesh.status.read") return "读取组网状态";
   if (task.type === "system.summary.read") return "读取系统摘要";
   if (task.type === "terminal.command.execute") {
     if (task.parameters.command === "disk-usage") return "执行 df -h";

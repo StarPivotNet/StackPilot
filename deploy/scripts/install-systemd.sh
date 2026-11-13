@@ -2,7 +2,7 @@
 set -eu
 
 component=${1:-}
-case "$component" in controller|agent|cert-helper) ;; *) echo "Usage: install-systemd.sh controller|agent|cert-helper" >&2; exit 1;; esac
+case "$component" in controller|agent|cert-helper|mesh-helper) ;; *) echo "Usage: install-systemd.sh controller|agent|cert-helper|mesh-helper" >&2; exit 1;; esac
 [ "$(id -u)" -eq 0 ] || { echo "Installation requires root; services still run as dedicated non-root users." >&2; exit 1; }
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
@@ -11,6 +11,7 @@ case "$component" in
   controller) prefix=/opt/stackpilot; units="stackpilot-controller.service"; entry=apps/controller/dist/server.js; workspace=@stackpilot/controller ;;
   agent) prefix=/opt/stackpilot-agent; units="stackpilot-agent.service"; entry=apps/agent/dist/main.js; workspace=@stackpilot/agent ;;
   cert-helper) prefix=/opt/stackpilot-cert-helper; units="stackpilot-cert-helper.socket stackpilot-cert-helper@.service stackpilot-firewall-helper.socket stackpilot-firewall-helper@.service"; entry=apps/cert-helper/dist/main.js; workspace=@stackpilot/cert-helper ;;
+  mesh-helper) prefix=/opt/stackpilot-mesh-helper; units="stackpilot-mesh-helper.socket stackpilot-mesh-helper@.service"; entry=apps/mesh-helper/dist/main.js; workspace=@stackpilot/mesh-helper ;;
 esac
 required_entries=$entry
 if [ "$component" = "cert-helper" ]; then
@@ -73,9 +74,9 @@ install_units() {
       install -m 0644 "$unit_source" "$unit_target"
     fi
   done
-  if [ "$component" = "cert-helper" ]; then
-    install -m 0644 "$root/deploy/systemd/stackpilot-cert-helper.tmpfiles" "/etc/tmpfiles.d/stackpilot-cert-helper.conf"
-    systemd-tmpfiles --create "/etc/tmpfiles.d/stackpilot-cert-helper.conf"
+  if [ "$component" = "cert-helper" ] || [ "$component" = "mesh-helper" ]; then
+    install -m 0644 "$root/deploy/systemd/stackpilot-$component.tmpfiles" "/etc/tmpfiles.d/stackpilot-$component.conf"
+    systemd-tmpfiles --create "/etc/tmpfiles.d/stackpilot-$component.conf"
   fi
   systemctl daemon-reload
 }
@@ -124,6 +125,8 @@ if [ "$component" = "cert-helper" ]; then
     install -m 0600 "$root/deploy/examples/site-helper.env.example" /etc/stackpilot-site-helper/helper.env
   fi
   echo "Installed $component $version. Enable the local-only sockets: systemctl enable --now stackpilot-cert-helper.socket stackpilot-firewall-helper.socket"
+elif [ "$component" = "mesh-helper" ]; then
+  echo "Installed $component $version. Enable the local-only socket: systemctl enable --now stackpilot-mesh-helper.socket"
 else
   echo "Installed $component $version. Configure /etc before running: systemctl enable --now stackpilot-$component.service"
 fi

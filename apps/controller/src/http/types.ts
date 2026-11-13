@@ -15,6 +15,9 @@ import type { DeploymentQueryService } from "../modules/deployments/deploymentQu
 import type { DatabaseMonitoringService } from "../modules/databases/databaseMonitoringService.js";
 import type { DatabaseBackupService } from "../modules/databases/databaseBackupService.js";
 import type { RemoteTaskService } from "../modules/remote-tasks/remoteTaskService.js";
+import type { MeshService } from "../modules/network/meshService.js";
+import type { CacheService } from "../modules/network/cacheService.js";
+import type { EgressService } from "../modules/network/egressService.js";
 import type { TerminalSnippetService } from "../modules/terminal/terminalSnippetService.js";
 import type { FileService } from "../modules/files/fileService.js";
 import type { FileUploadService } from "../modules/files/fileUploadService.js";
@@ -57,6 +60,9 @@ export type Services = {
   enrollments: EnrollmentService;
   nodes: NodeService;
   remoteTasks: RemoteTaskService;
+  mesh: MeshService;
+  cache: CacheService;
+  egress: EgressService;
   terminalSnippets: TerminalSnippetService;
   systemd: SystemdService;
   firewall: FirewallService;

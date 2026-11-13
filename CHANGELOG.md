@@ -2,6 +2,18 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.69 - 2026-11-13
+
+### Added
+
+- Implement M4 egress relay for the P2P mesh: each node serves an authenticated proxy on its assigned overlay address (fixed port 18080, `/v1/fetch` accepts only url/digest/maxBytes and rejects a nested `egress`), a bounded `network.egress.probe` task measures time-to-first-byte and throughput, the Controller keeps an in-memory egress quality table and routes `POST /api/network/cache/downloads` by throughput ÷ time-to-first-byte with `egress.selected` / `egress.local` audits, and a fill degrades to the direct origin when the egress is unreachable.
+- Add the mesh topology and cache surfaces, the read-only `stackpilot-mesh-helper` socket boundary, and an end-to-end egress verification script.
+- Cover the egress path with a real signed peer fetch, a digest-poisoning attempt that leaves no cache entry, an unregistered egress target that is never signed for, and an offline node that is never selected.
+
+### Changed
+
+- Harden egress routing: the fill contract only accepts overlay addresses, the receiving Agent cross-checks the Controller peer directory before signing, egress bytes are digest-checked before the cache commit, a probe follows redirects only through the shared host policy, and selection skips offline nodes.
+
 ## 0.3.0-preview.68 - 2026-11-13
 
 ### Added

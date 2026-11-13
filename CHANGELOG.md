@@ -2,6 +2,13 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.68 - 2026-11-13
+
+### Added
+
+- Complete native OpenSSH acceptance on disposable Debian 12 and Ubuntu 24.04 VMs: keyboard-interactive command login, SCP transfer, ControlMaster multiplexing and cross-host credential rejection.
+- Align SSH acceptance documentation with the completed partition, helper restart, profile, deadline and non-root Agent evidence.
+
 ## 0.3.0-preview.67 - 2026-11-13
 
 ### Added

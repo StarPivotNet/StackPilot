@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.57 - 2026-11-13
+
+### Fixed
+
+- Keep audit result counts visible with backend freshness, bound audit and ACL modal surfaces to the viewport, and give ACL role/permission panels the intended borderless hierarchy. Align site monitoring browser checks with the current visible module heading.
+
 ## 0.3.0-preview.56 - 2026-11-13
 
 ### Fixed

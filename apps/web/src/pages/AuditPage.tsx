@@ -226,7 +226,7 @@ function AuditLogPage({ page, notify, canExport }: { page: PageKey; notify: Noti
     >
       {audit.loading && !audit.data && <span className="sr-only" role="status">正在读取真实审计日志</span>}
       {audit.error && !audit.data ? <div className="overview-error-state"><Shield size={18} /><span>{audit.error}</span><button type="button" onClick={() => void audit.retry()}>重试</button></div> : <>
-        <div className="slow-freshness"><Clock3 size={20} /><div><strong>后端采集于 {formatBackendDateTime(audit.data?.collectedAt, "等待采集")}</strong><span>{freshness}</span></div></div>
+        <div className="slow-freshness"><Clock3 size={20} /><div><strong>后端采集于 {formatBackendDateTime(audit.data?.collectedAt, "等待采集")}</strong><span>{freshness} · 匹配 {records.length} 条</span></div></div>
         <DataTable
           columns={[
             { key: "time", label: "时间", width: "154px", sortValue: (row) => row.time, render: (row) => <span className="audit-cell-value" title={row.time}>{row.time}</span> },

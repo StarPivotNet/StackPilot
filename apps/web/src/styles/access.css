@@ -10,6 +10,9 @@
 }
 
 :is(.module-page-acl, .module-page-acl-users) .module-filter-line { padding: 0; }
+:is(.module-page-acl, .module-page-acl-users) .panel-card { border: 0; box-shadow: var(--shadow-medium); }
+:is(.module-page-acl, .module-page-acl-users) .role-list > button,
+:is(.module-page-acl, .module-page-acl-users) .permission-grid > button { border: 0; box-shadow: var(--shadow-subtle); }
 :is(.module-page-acl, .module-page-acl-users) .deploy-tabs {
   padding: 0;
   margin: 0;

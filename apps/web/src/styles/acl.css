@@ -132,7 +132,7 @@
 .cloudpulse-security.module-page .policy-role-list i { font-size: 12px; font-style: normal; flex: none; }
 .cloudpulse-security.module-page .policy-role-list button:disabled { opacity: 1; cursor: default; }
 .acl-policy-save-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-.acl-role-create-modal { width: min(560px, 100vw); border: 0; border-radius: 0; background: var(--surface); box-shadow: var(--shadow-overlay); }
+.acl-role-create-modal { width: min(560px, 100vw); max-height: calc(100dvh - 16px); box-sizing: border-box; overflow: auto; border: 0; border-radius: 0; background: var(--surface); box-shadow: var(--shadow-overlay); }
 .acl-role-create-modal :is(.drawer-head,.drawer-actions) { padding: 24px; border: 0; }
 .acl-role-create-modal .drawer-body { padding: 0 24px 24px; }
 .acl-role-create-permissions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; max-height: 320px; overflow: auto; }

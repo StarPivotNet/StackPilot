@@ -26,9 +26,9 @@ test("site management stays contained across supported widths and completes a po
   page.on("response", (response) => { if (new URL(response.url()).pathname === "/api/sites" && response.status() === 200) siteResponses += 1; });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/#sites-running");
-  await expect(page.locator(".module-page-sites-running > .page-head")).toHaveCount(0);
+  await expect(page.locator(".module-page-sites-running > .page-head")).toHaveCount(1);
   await expect(page.locator(".module-page-sites-running .module-view-context")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "运行中站点" })).toHaveClass(/sr-only/);
+  await expect(page.getByRole("heading", { name: "运行中站点" })).not.toHaveClass(/sr-only/);
   await expect.poll(() => siteResponses, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(consoleErrors).toEqual([]);

@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.52 - 2026-11-13
+
+### Fixed
+
+- Keep the audited Node build image on the repository's required `22.22.0-bookworm-slim` tag while retaining its refreshed immutable digest. Deployment contract tests now remain compatible with the security refresh.
+
 ## 0.3.0-preview.51 - 2026-11-13
 
 ### Fixed

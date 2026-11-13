@@ -104,4 +104,6 @@ The service-operator exercise is now complete on the same disposable Debian VM: 
 
 A disposable Debian partition probe then rejected Controller traffic to the helper machine port while keeping the SSH transport alive. The existing session continued to execute, a newly issued password was rejected by the host, and restoring the route followed by credential revocation closed the original connection.
 
+The Ubuntu VM also ran the real Agent binary as a separate non-root `sp-agent-test` user while the root SSH helper managed the same host. The Agent enrolled as a distinct node, sent signed heartbeats and telemetry (including physical host identity), and was then stopped and revoked. This proves coexistence and identity separation on the disposable VM; it does not make OpenSSH `scp` or ControlMaster acceptance complete.
+
 `GET /api/ssh-helper/state` derives current authorization and termination requirements without mutating stored session state. `POST /api/ssh-helper/sessions/ack` accepts `{sessionId,connectionId}` only for the authenticated node, records backend receipt time after a helper-confirmed close, and is idempotent. The helper retains pending receipts if delivery fails; requests and actual closure remain distinct. See the [root helper workspace](../apps/ssh-helper/README.md) for its native build and validation limits.

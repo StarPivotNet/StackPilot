@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.67 - 2026-11-13
+
+### Added
+
+- Verify real non-root Agent coexistence on Ubuntu: distinct enrollment, signed heartbeat/telemetry and physical-host identity while the root SSH helper remained active; revoke and stop the disposable Agent afterward.
+
 ## 0.3.0-preview.66 - 2026-11-13
 
 ### Added

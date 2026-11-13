@@ -40,7 +40,7 @@ function OverviewPage({ setPage, notify }: { setPage: SetPage; notify: Notify })
   };
   const see = (page: Parameters<SetPage>[0], label = "查看全部") => <button className="overview-section-link" type="button" onClick={() => setPage(page)}>{label}<ArrowRight size={16} aria-hidden="true" /></button>;
 
-  return <div className="overview-page cloudpulse-overview">
+  return <div className="overview-page cloudpulse-overview" role="region" aria-label="实时工作台状态">
     <header className="overview-page-heading">
       <div><p className="overview-eyebrow">INFRASTRUCTURE OVERVIEW</p><h1>工作台</h1><p className="overview-intro">{hasOverview ? `${overview.nodes.length} 个节点，${pendingRisks.length} 项风险需要关注。` : "从节点到服务，掌握基础设施运行状态。"}</p></div>
       <div className="overview-heading-meta"><span className={`overview-semantic-status ${healthy ? "green" : hasOverview ? "orange" : "gray"}`}><StatusIcon size={16} aria-hidden="true" />{hasOverview ? overview.cluster.health : "等待采集"}</span><OverviewFreshness value={data?.collectedAt || data?.lastRefresh} /><button className="ghost" type="button" disabled={checkingUpdates || !data} onClick={() => void checkUpdates()}><PackageSearch size={16} />{checkingUpdates ? "正在检查" : "检查更新"}</button></div>

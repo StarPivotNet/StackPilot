@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.56 - 2026-11-13
+
+### Fixed
+
+- Restore the overview's live-workbench accessibility landmark and align browser E2E heading assertions with the current CloudPulse module headings. No SSH authorization or storage behavior changes.
+
 ## 0.3.0-preview.55 - 2026-11-13
 
 ### Fixed

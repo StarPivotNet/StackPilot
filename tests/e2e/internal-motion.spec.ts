@@ -5,8 +5,8 @@ async function login(page: Page) {
   await page.getByRole("textbox", { name: "用户名" }).fill("e2e-admin");
   await page.getByRole("textbox", { name: "密码" }).fill("e2e administrator password");
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page.getByRole("heading", { name: "文件", level: 1 })).toHaveClass(/sr-only/);
-  await expect(page.locator(".module-page-files .page-head h1:not(.sr-only)")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "文件", level: 1 })).not.toHaveClass(/sr-only/);
+  await expect(page.locator(".module-page-files .page-head h1:not(.sr-only)")).toHaveCount(1);
 }
 
 async function animation(locator: Locator) {

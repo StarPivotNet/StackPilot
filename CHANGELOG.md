@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.58 - 2026-11-13
+
+### Fixed
+
+- Remove residual ACL panel/button borders and keep the policy detail elevation visible. Constrain the audit drawer to the viewport with a one-pixel safe inset for both desktop and mobile.
+
 ## 0.3.0-preview.57 - 2026-11-13
 
 ### Fixed

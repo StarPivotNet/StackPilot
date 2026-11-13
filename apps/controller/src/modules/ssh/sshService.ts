@@ -150,8 +150,9 @@ export class SshService {
     }).immediate();
   }
   authenticate(nodeId: string, account: string, password: string, connectionId: string) {
-    if (password.length !== 43 || !/^[A-Za-z0-9_-]+$/.test(password) || connectionId.length < 16 || connectionId.length > 256) throw denied();
-    return this.db.transaction(() => {
+    try {
+      if (password.length !== 43 || !/^[A-Za-z0-9_-]+$/.test(password) || connectionId.length < 16 || connectionId.length > 256) throw denied();
+      return this.db.transaction(() => {
       const row = this.db.prepare("SELECT payload FROM ssh_credentials WHERE digest=? AND node_id=?").get(digest(password), nodeId) as PayloadRow | undefined;
       if (!row) throw denied();
       const value = SshCredentialSchema.parse(JSON.parse(row.payload));
@@ -166,7 +167,13 @@ export class SshService {
       this.db.prepare("INSERT INTO ssh_sessions(id,node_id,user_id,credential_id,connection_id,payload) VALUES(?,?,?,?,?,?)").run(session.id, nodeId, value.userId, value.id, connectionId, JSON.stringify(session));
       this.record(value.userId, nodeId, "authentication.accepted", session.id);
       return session;
-    }).immediate();
+      }).immediate();
+    } catch (error) {
+      // Authentication failures are audited without retaining passwords or
+      // guessing which credential/user was supplied by an untrusted host.
+      this.record("unknown", nodeId, "authentication.denied", connectionId, { account }, "failure");
+      throw error;
+    }
   }
   revoke(principal: Principal, id: string) {
     return this.db.transaction(() => {

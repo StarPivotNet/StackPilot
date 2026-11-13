@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/database-helper",
   "private": true,
-  "version": "0.3.0-preview.54",
+  "version": "0.3.0-preview.55",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -13,7 +13,7 @@
     "test": "npm run build && node --test ../../tests/database-helper/*.test.js"
   },
   "dependencies": {
-    "@stackpilot/contracts": "0.3.0-preview.54",
+    "@stackpilot/contracts": "0.3.0-preview.55",
     "zod": "^4.6.7"
   },
   "devDependencies": {

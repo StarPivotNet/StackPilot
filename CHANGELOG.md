@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.55 - 2026-11-13
+
+### Fixed
+
+- Audit rejected SSH authentication attempts with node, account and connection metadata while never storing submitted passwords or inferring an identity from invalid credentials.
+
 ## 0.3.0-preview.54 - 2026-11-13
 
 ### Fixed

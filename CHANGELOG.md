@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.66 - 2026-11-13
+
+### Added
+
+- Exercise a real Controller partition on the disposable Debian VM: existing sessions continued, new host authentication failed closed, and restored connectivity plus revocation closed the original session.
+
 ## 0.3.0-preview.65 - 2026-11-13
 
 ### Added

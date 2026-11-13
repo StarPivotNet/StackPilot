@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.61 - 2026-11-13
+
+### Added
+
+- Record real native-client acceptance on both restored Debian 12 and Ubuntu 24.04 VMs: fresh OTP keyboard-interactive SSH, connection reuse, UID 10000 and SFTP upload/download.
+
 ## 0.3.0-preview.60 - 2026-11-13
 
 ### Fixed

@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.53 - 2026-11-13
+
+### Fixed
+
+- Update the deployment contract to assert the refreshed Nginx Alpine 3.24 slim digest used by the Web image, keeping image provenance checks aligned with the scanned runtime.
+
 ## 0.3.0-preview.52 - 2026-11-13
 
 ### Fixed

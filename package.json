@@ -1,7 +1,7 @@
 {
   "name": "stackpilot",
   "private": true,
-  "version": "0.3.0-preview.52",
+  "version": "0.3.0-preview.53",
   "license": "AGPL-3.0-only",
   "workspaces": [
     "packages/*",

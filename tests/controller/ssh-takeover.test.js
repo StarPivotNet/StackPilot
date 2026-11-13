@@ -28,7 +28,7 @@ async function fixture(action) {
     plan.local = { planId: plan.id, state: 'awaiting-verification', baselineDigest: inventory.digest, appliedDigest: 'b'.repeat(64), rollbackAt: new Date(Date.now()+300000).toISOString(), verificationId: null };
     db.prepare('UPDATE ssh_takeover_plans SET state=?,payload=? WHERE id=?').run(plan.state, JSON.stringify(plan), plan.id); return plan;
   };
-  try { await action({ db, identity, principal, nodeId, ssh, service, helper, policy, input, inventory, receipt, seedTrial }); } finally { db.close(); }
+  try { await action({ db, identity, principal, nodeId, ssh, service, helpers, helper, policy, input, inventory, receipt, seedTrial }); } finally { db.close(); }
 }
 test('takeover plans lock one node and preserve request idempotency; GET command derivation is read-only', async () => fixture(({ db, service, principal, nodeId, input, helper, receipt }) => {
   const plan = service.create(principal, input); assert.equal(plan.state, 'prechecking'); assert.equal(service.create(principal, input).id, plan.id);
@@ -69,4 +69,19 @@ test('revocation derives a stable recovery command without poll mutations and re
   const plan = seedTrial(); db.prepare('UPDATE users SET disabled_at=? WHERE id=?').run(new Date().toISOString(), principal.userId);
   const before = db.prepare('SELECT total_changes() AS n').get().n, command = service.next(nodeId); assert.equal(command.action, 'rollback'); assert.equal(service.next(nodeId).id, command.id); assert.equal(db.prepare('SELECT total_changes() AS n').get().n, before);
   service.recover(); assert.equal(service.get(plan.id).state, 'rolling-back'); assert.equal(service.get(plan.id).command.action, 'rollback');
+}));
+test('reverification uses fresh signed committed state and never queues an authentication rollback', async () => fixture(async ({ db, service, helpers, helper, principal, nodeId, inventory, seedTrial }) => {
+  const plan = seedTrial(); plan.state = 'managed'; plan.local.state = 'managed'; plan.local.verificationId = randomUUID(); plan.verificationId = plan.local.verificationId; plan.local.rollbackAt = new Date(Date.now()-3600000).toISOString();
+  const save = () => db.prepare('UPDATE ssh_takeover_plans SET state=?,payload=? WHERE id=?').run(plan.state,JSON.stringify(plan),plan.id); save();
+  assert.throws(()=>service.reverify(principal,plan.id),{status:409});
+  const report = { collectedAt:new Date().toISOString(),supported:true,reason:'native inventory',platform:'debian-12',version:'fixture',inventory:{...inventory,digest:plan.local.appliedDigest},takeover:plan.local };
+  helpers.report({nodeId,credentialId:helper.credentialId},{...report,inventory:{...report.inventory,digest:'c'.repeat(64)}});
+  assert.throws(()=>service.reverify(principal,plan.id),{status:409});
+  helpers.report({nodeId,credentialId:helper.credentialId},report);
+  const trial = service.reverify(principal,plan.id); assert.equal(trial.command,null); assert.equal(trial.local.state,'managed');
+  await new Promise(resolve=>setImmediate(resolve));
+  const verified = service.get(plan.id); assert.equal(verified.state,'managed'); assert.notEqual(verified.verificationId,plan.local.verificationId); assert.equal(verified.local.verificationId,plan.local.verificationId); assert.equal(verified.evidence.length,SSH_VERIFICATION_CHECKS.length);
+  assert.equal(db.prepare('SELECT verification_id FROM ssh_hosts WHERE node_id=?').get(nodeId).verification_id,verified.verificationId);
+  const restarted = service.reverify(principal,plan.id); assert.equal(restarted.state,'awaiting-verification'); service.recover(); assert.equal(service.get(plan.id).state,'drifted'); assert.equal(service.next(nodeId),null);
+  await new Promise(resolve=>setImmediate(resolve)); assert.equal(service.get(plan.id).state,'drifted');
 }));

@@ -51,6 +51,7 @@ function ConfirmDialog({
       if (event.defaultPrevented || !document.contains(dialog)) return;
       if (event.key === "Escape") {
         event.preventDefault();
+        if (busy) return;
         requestClose();
         return;
       }
@@ -85,11 +86,11 @@ function ConfirmDialog({
         : drawerRestoreFallback(dialog);
       restoreFocusAfterUnmount(dialog, restoreTarget);
     };
-  }, [requestClose, restoreFocusTarget]);
+  }, [requestClose, restoreFocusTarget, busy]);
 
   return createPortal(
     <>
-      <button className={["confirm-dialog-scrim", className ? `${className}-scrim` : ""].filter(Boolean).join(" ")} data-closing={closing || undefined} type="button" aria-label="关闭确认弹窗" onClick={requestClose} tabIndex={-1} disabled={closing} />
+      <button className={["confirm-dialog-scrim", className ? `${className}-scrim` : ""].filter(Boolean).join(" ")} data-closing={closing || undefined} type="button" aria-label="关闭确认弹窗" onClick={requestClose} tabIndex={-1} disabled={busy || closing} />
       <div
         ref={dialogRef}
         className={["confirm-dialog", className].filter(Boolean).join(" ")}
@@ -104,7 +105,7 @@ function ConfirmDialog({
         <header>
           <span className={`confirm-dialog-icon ${tone}`}>{tone === "info" ? <Info size={20} /> : <AlertTriangle size={20} />}</span>
           <strong id={titleId}>{title}</strong>
-          <button className="icon-action" type="button" aria-label="关闭确认弹窗" disabled={closing} onClick={requestClose}><X size={16} /></button>
+          <button className="icon-action" type="button" aria-label="关闭确认弹窗" disabled={busy || closing} onClick={requestClose}><X size={16} /></button>
         </header>
         <div className="confirm-dialog-body">
           <p id={descriptionId}>{message}</p>

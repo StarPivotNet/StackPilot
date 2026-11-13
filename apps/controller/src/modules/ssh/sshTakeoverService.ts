@@ -1,7 +1,7 @@
 import { createHash, generateKeyPairSync, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import ssh2 from "ssh2";
-import { SshHostSchema, SshPolicySchema, SshTakeoverPlanSchema, type SshTakeoverPlan, type SshTakeoverInput, type SshTakeoverCommand, type SshTakeoverReceipt, type SshPolicy, type SshInventory, type Permission } from "@stackpilot/contracts";
+import { SshHostSchema, SshPolicySchema, SshHelperReportSchema, SshTakeoverPlanSchema, type SshTakeoverPlan, type SshTakeoverInput, type SshTakeoverCommand, type SshTakeoverReceipt, type SshPolicy, type SshInventory, type Permission } from "@stackpilot/contracts";
 import type { AuditRepository } from "../../audit/auditRepository.js";
 import type { Principal } from "../../identity/types.js";
 import { ServiceError } from "../serviceError.js";
@@ -12,7 +12,7 @@ import { SshVerificationError } from "./sshTakeoverVerifier.js";
 
 type Evidence = SshTakeoverPlan["evidence"];
 export type TakeoverVerifier = (plan: SshTakeoverPlan, privateKey: string) => Promise<Evidence>;
-const terminal = new Set(["managed", "rolled-back", "failed"]);
+const terminal = new Set(["managed", "rolled-back", "failed", "drifted"]);
 const deny = () => new ServiceError(403, "FORBIDDEN", "SSH 接管权限或主机范围已变更");
 type Payload = { payload: string };
 export class SshTakeoverService {
@@ -26,14 +26,15 @@ export class SshTakeoverService {
       AND (EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role_id='administrator') OR EXISTS(SELECT 1 FROM user_node_scopes ns WHERE ns.user_id=u.id AND ns.node_id=?))`).get(userId, permission, nodeId);
   }
   private node(nodeId: string) { return !!this.db.prepare("SELECT 1 FROM agent_nodes WHERE node_id=? AND revoked_at IS NULL").get(nodeId); }
-  private ownPolicy(plan: Pick<SshTakeoverPlan, "nodeId" | "requestedBy">): SshPolicy {
-    const row = this.db.prepare("SELECT payload FROM ssh_policies WHERE node_id=? AND user_id=?").get(plan.nodeId, plan.requestedBy) as Payload | undefined;
+  private ownPolicy(plan: Pick<SshTakeoverPlan, "nodeId" | "requestedBy"> & Partial<Pick<SshTakeoverPlan, "reverification">>): SshPolicy {
+    const actor = plan.reverification?.requestedBy ?? plan.requestedBy;
+    const row = this.db.prepare("SELECT payload FROM ssh_policies WHERE node_id=? AND user_id=?").get(plan.nodeId, actor) as Payload | undefined;
     if (!row) throw new ServiceError(409, "BAD_REQUEST", "接管前请为当前操作者配置明确的 SSH 授权");
     const policy = SshPolicySchema.parse(JSON.parse(row.payload));
-    if (!policy.enabled || !this.can(plan.requestedBy, plan.nodeId, "ssh:connect")) throw deny(); return policy;
+    if (!policy.enabled || !this.can(actor, plan.nodeId, "ssh:connect")) throw deny(); return policy;
   }
   private authorized(plan: SshTakeoverPlan) {
-    if (!this.node(plan.nodeId) || !this.can(plan.requestedBy, plan.nodeId, "ssh:manage")) return false;
+    if (!this.node(plan.nodeId) || !this.can(plan.reverification?.requestedBy ?? plan.requestedBy, plan.nodeId, "ssh:manage") || plan.reverification && Date.parse(plan.reverification.expiresAt) <= this.clock()) return false;
     try { const policy = this.ownPolicy(plan); return !plan.binding || policy.id === plan.binding.policyId && policy.revision === plan.binding.revision && policy.appliedRevision === policy.revision && policy.systemUid === plan.binding.uid; } catch { return false; }
   }
   private user(principal: Principal, nodeId: string) {
@@ -50,7 +51,7 @@ export class SshTakeoverService {
   }
   private host(plan: SshTakeoverPlan, state: "unmanaged" | "prechecked" | "applying" | "awaiting-verification" | "managed" | "rolling-back" | "rolled-back" | "manual-recovery-required" | "drifted", available = false) {
     const value = SshHostSchema.parse({ nodeId: plan.nodeId, state, available, reason: plan.error ?? (state === "managed" ? "SSH 接管及独立验证已完成" : "SSH 接管等待主机确认"), address: plan.address, port: plan.port, fingerprints: plan.inventory?.fingerprints ?? [], collectedAt: this.now(), planId: plan.id, configDigest: plan.local?.appliedDigest ?? null });
-    this.db.prepare("INSERT INTO ssh_hosts(node_id,payload,verification_id,helper_revoked_at) VALUES(?,?,?,NULL) ON CONFLICT(node_id) DO UPDATE SET payload=excluded.payload,verification_id=excluded.verification_id,helper_revoked_at=NULL").run(plan.nodeId, JSON.stringify(value), state === "managed" ? plan.local?.verificationId ?? null : null);
+    this.db.prepare("INSERT INTO ssh_hosts(node_id,payload,verification_id,helper_revoked_at) VALUES(?,?,?,NULL) ON CONFLICT(node_id) DO UPDATE SET payload=excluded.payload,verification_id=excluded.verification_id,helper_revoked_at=NULL").run(plan.nodeId, JSON.stringify(value), state === "managed" ? plan.verificationId : null);
   }
   create(principal: Principal, input: SshTakeoverInput) {
     this.user(principal, input.nodeId);
@@ -78,15 +79,35 @@ export class SshTakeoverService {
       plan.binding = { policyId: policy.id, revision: policy.revision, account: policy.account, uid: policy.systemUid }; plan.state = "applying"; plan.command = { ...this.command(plan, "probe-key"), probePublicKey: `ssh-rsa ${parsed.getPublicSSH().toString("base64")}` }; this.keys.set(plan.id, key); this.save(plan); this.host(plan, "applying"); this.event(plan, principal.userId, "apply-requested"); return plan;
     }).immediate();
   }
-  rollback(principal: Principal, id: string) { return this.db.transaction(() => { const plan = this.get(id); this.user(principal, plan.nodeId); if (terminal.has(plan.state)) return plan; this.cancel(plan, "操作者请求回滚"); this.event(plan, principal.userId, "rollback-requested"); return plan; }).immediate(); }
-  private cancel(plan: SshTakeoverPlan, reason: string) { if (plan.state === "rolling-back" && plan.command?.action === "rollback") return; plan.error = reason; plan.state = "rolling-back"; plan.command = this.command(plan, "rollback"); this.ssh.revokeVerification(plan.id); this.keys.delete(plan.id); this.save(plan); this.host(plan, "rolling-back"); }
+  reverify(principal: Principal, id: string) {
+    const plan = this.db.transaction(() => {
+      const value = this.get(id); this.user(principal, value.nodeId);
+      if (value.reverification && !terminal.has(value.state)) { if (value.reverification.requestedBy !== principal.userId) throw deny(); return value; }
+      if (this.running.has(`${id}:verify`)) throw new ServiceError(409, "NOT_READY", "上一次独立核验正在结束，请稍后重试");
+      if (!terminal.has(value.state) || value.command || value.local?.state !== "managed" || !value.local.verificationId || !value.local.appliedDigest) throw new ServiceError(409, "NOT_READY", "请先完成主机接管及清理；重新核验不会修改 SSH 配置");
+      const row = this.db.prepare("SELECT report FROM ssh_helper_credentials WHERE node_id=? AND revoked_at IS NULL").get(value.nodeId) as { report: string | null } | undefined;
+      const report = row?.report ? SshHelperReportSchema.parse(JSON.parse(row.report)) : null;
+      if (!report?.supported || !report.inventory || !report.takeover || this.clock() - Date.parse(report.collectedAt) > 30_000 || Date.parse(report.collectedAt) > this.clock() + 5_000 || Math.abs(this.clock() - Date.parse(report.inventory.collectedAt)) > 30_000 || report.takeover.planId !== value.id || report.takeover.state !== "managed" || report.takeover.verificationId !== value.local.verificationId || report.takeover.appliedDigest !== value.local.appliedDigest || report.inventory.digest !== value.local.appliedDigest) throw new ServiceError(409, "NOT_READY", "请通过带外入口恢复已登记的 SSH 配置，等待主机采集后再核验");
+      const count = this.db.prepare("SELECT count(*) AS n FROM ssh_takeover_plans WHERE state IN ('applying','awaiting-verification','rolling-back')").get() as { n: number };
+      if (count.n >= 4) throw new ServiceError(429, "TOO_MANY_REQUESTS", "已有接管正在验证，请稍后逐台操作");
+      value.reverification = { requestedBy: principal.userId, expiresAt: new Date(this.clock() + 300_000).toISOString() };
+      const policy = this.ownPolicy(value); if (policy.appliedRevision !== policy.revision || policy.systemUid === null) throw new ServiceError(409, "NOT_READY", "主机尚未确认当前操作者的账号与权限");
+      this.event(value, principal.userId, "reverification.requested");
+      value.binding = { policyId: policy.id, revision: policy.revision, account: policy.account, uid: policy.systemUid }; value.appliedInventory = report.inventory; value.state = "awaiting-verification"; value.command = null; value.error = null; value.evidence = []; value.verificationId = null;
+      this.keys.set(value.id, generateKeyPairSync("rsa", { modulusLength: 3072 }).privateKey.export({ type: "pkcs1", format: "pem" }).toString());
+      this.save(value); this.host(value, "awaiting-verification"); return value;
+    }).immediate();
+    void this.run(plan.id, "verify").catch(() => undefined); return plan;
+  }
+  rollback(principal: Principal, id: string) { return this.db.transaction(() => { const plan = this.get(id); this.user(principal, plan.nodeId); if (terminal.has(plan.state)) return plan; this.cancel(plan, plan.reverification ? "操作者取消重新核验，保持暂停签发" : "操作者请求回滚"); this.event(plan, principal.userId, "rollback-requested"); return plan; }).immediate(); }
+  private cancel(plan: SshTakeoverPlan, reason: string) { if (plan.state === "rolling-back" && plan.command?.action === "rollback") return; plan.error = reason; plan.state = plan.reverification ? "drifted" : "rolling-back"; plan.command = plan.reverification ? null : this.command(plan, "rollback"); this.ssh.revokeVerification(plan.id); this.keys.delete(plan.id); this.save(plan); this.host(plan, plan.reverification ? "drifted" : "rolling-back"); }
   private revokedCommand(plan: SshTakeoverPlan) {
     const command = this.command(plan, "rollback"), hash = createHash("sha256").update(`${plan.id}:${plan.command?.id ?? "idle"}:authorization-revoked`).digest("hex");
     command.id = `${hash.slice(0,8)}-${hash.slice(8,12)}-4${hash.slice(13,16)}-8${hash.slice(17,20)}-${hash.slice(20,32)}`; return command;
   }
   next(nodeId: string) {
     const rows = this.db.prepare("SELECT payload FROM ssh_takeover_plans WHERE node_id=? ORDER BY created_at DESC").all(nodeId) as Payload[];
-    for (const row of rows) { const plan = SshTakeoverPlanSchema.parse(JSON.parse(row.payload)); if (!terminal.has(plan.state) && !this.authorized(plan)) return this.revokedCommand(plan); if (plan.command) return plan.command; }
+    for (const row of rows) { const plan = SshTakeoverPlanSchema.parse(JSON.parse(row.payload)); if (!terminal.has(plan.state) && !this.authorized(plan)) return plan.reverification ? null : this.revokedCommand(plan); if (plan.command) return plan.command; }
     return null;
   }
   receive(nodeId: string, credentialId: string, receipt: SshTakeoverReceipt) {
@@ -130,17 +151,21 @@ export class SshTakeoverService {
       else { evidence = await this.verify(plan, key); if (!completeSshEvidence(evidence)) throw new Error("SSH verification evidence is incomplete"); }
       this.db.transaction(() => {
         const current = this.get(id); if (!this.authorized(current) || current.command || current.state !== (phase === "legacy" ? "applying" : "awaiting-verification")) throw deny();
-        current.evidence.push(...evidence); current.command = this.command(current, phase === "legacy" ? "apply" : "commit"); if (phase === "verify") { current.verificationId = randomUUID(); current.command.verificationId = current.verificationId; } this.save(current); this.event(current, current.requestedBy, `verification.${phase}`);
+        current.evidence.push(...evidence);
+        if (phase === "verify" && current.reverification) {
+          current.verificationId = randomUUID(); current.state = "managed"; current.command = null; current.error = null; this.save(current); this.host(current, "managed", true); this.keys.delete(id); this.ssh.revokeVerification(id);
+        } else { current.command = this.command(current, phase === "legacy" ? "apply" : "commit"); if (phase === "verify") { current.verificationId = randomUUID(); current.command.verificationId = current.verificationId; } this.save(current); }
+        this.event(current, current.reverification?.requestedBy ?? current.requestedBy, `verification.${phase}`);
       }).immediate();
-    } catch (error) { this.db.transaction(() => { const plan = this.get(id); if (!terminal.has(plan.state)) { if (error instanceof SshVerificationError) plan.evidence.push(...error.evidence); this.cancel(plan, error instanceof SshVerificationError ? `独立验证失败（${error.code}，已通过 ${error.evidence.length} 项），正在恢复原配置` : "独立验证失败或授权已变更，正在恢复原配置"); } }).immediate(); }
+    } catch (error) { this.db.transaction(() => { const plan = this.get(id); if (!terminal.has(plan.state)) { if (error instanceof SshVerificationError) plan.evidence.push(...error.evidence); const recovery = plan.reverification ? "保持暂停签发，请检查带外入口" : "正在恢复原配置"; this.cancel(plan, error instanceof SshVerificationError ? `独立验证失败（${error.code}，已通过 ${error.evidence.length} 项），${recovery}` : `独立验证失败或授权已变更，${recovery}`); } }).immediate(); }
     finally { this.running.delete(job); }
   }
   observe(nodeId: string, inventory: SshInventory | null) {
     const row = this.db.prepare("SELECT payload,verification_id FROM ssh_hosts WHERE node_id=?").get(nodeId) as (Payload & { verification_id: string | null }) | undefined;
     if (!row) return; const host = SshHostSchema.parse(JSON.parse(row.payload));
     if (host.state !== "managed" || !row.verification_id || !host.configDigest) return;
-    if (!inventory || inventory.digest !== host.configDigest) { host.state = "drifted"; host.available = false; host.reason = "SSH 入口或配置已变化，暂停签发并等待重新核验"; this.db.prepare("UPDATE ssh_hosts SET payload=?,verification_id=NULL WHERE node_id=?").run(JSON.stringify(host), nodeId); }
+    if (!inventory || inventory.digest !== host.configDigest) { host.state = "drifted"; host.available = false; host.reason = inventory ? "SSH 入口或配置已变化，暂停签发并等待重新核验" : "SSH 入口暂无法核验，暂停签发并等待重新核验"; this.db.prepare("UPDATE ssh_hosts SET payload=?,verification_id=NULL WHERE node_id=?").run(JSON.stringify(host), nodeId); }
     else { host.collectedAt = inventory.collectedAt; host.available = true; this.db.prepare("UPDATE ssh_hosts SET payload=? WHERE node_id=?").run(JSON.stringify(host), nodeId); }
   }
-  recover() { this.db.transaction(() => { for (const row of this.db.prepare("SELECT payload FROM ssh_takeover_plans WHERE state NOT IN ('managed','rolled-back','failed')").all() as Payload[]) { const plan = SshTakeoverPlanSchema.parse(JSON.parse(row.payload)); this.cancel(plan, "Controller 重启，未提交的接管需要恢复"); } }).immediate(); }
+  recover() { this.db.transaction(() => { for (const row of this.db.prepare("SELECT payload FROM ssh_takeover_plans WHERE state NOT IN ('managed','rolled-back','failed','drifted')").all() as Payload[]) { const plan = SshTakeoverPlanSchema.parse(JSON.parse(row.payload)); this.cancel(plan, plan.reverification ? "Controller 重启，重新核验已中断，保持暂停签发" : "Controller 重启，未提交的接管需要恢复"); } }).immediate(); }
 }

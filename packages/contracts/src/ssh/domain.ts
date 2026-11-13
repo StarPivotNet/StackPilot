@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PublicUserSchema } from "../identity/index.js";
 
 export const SSH_LOGIN_WINDOW_SECONDS = 900;
 export const SSH_MAX_SESSION_SECONDS = 28_800;
@@ -18,8 +19,8 @@ export const SshPolicySchema = SshPolicyInputSchema.safeExtend({ id: z.string().
 export const SshIssueRequestSchema = z.object({ nodeId: z.string().uuid(), purpose: z.string().trim().min(1).max(500), sessionSeconds: z.number().int().min(60).max(SSH_MAX_SESSION_SECONDS).optional() }).strict();
 export const SshCredentialSchema = z.object({ id: z.string().uuid(), nodeId: z.string().uuid(), userId: z.string().uuid(), policyId: z.string().uuid(), policyRevision: z.number().int(), account: z.string(), purpose: z.string(), createdAt: z.string().datetime(), loginExpiresAt: z.string().datetime(), sessionSeconds: z.number().int(), consumedAt: z.string().datetime().nullable(), revokedAt: z.string().datetime().nullable(), kind: z.enum(["login", "verification"]).default("login"), planId: z.string().uuid().nullable().default(null) });
 export const SshSessionSchema = z.object({ id: z.string().uuid(), credentialId: z.string().uuid(), nodeId: z.string().uuid(), userId: z.string().uuid(), account: z.string(), connectionId: z.string().min(16).max(256), startedAt: z.string().datetime(), expiresAt: z.string().datetime(), terminationRequestedAt: z.string().datetime().nullable(), terminatedAt: z.string().datetime().nullable() });
-export const SshHostSchema = z.object({ nodeId: z.string().uuid(), state: SshStateSchema, available: z.boolean(), reason: z.string(), address: z.string(), port: z.number().int().min(1).max(65535), fingerprints: z.array(z.string()), collectedAt: z.string().datetime().nullable(), configDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable().default(null), planId: z.string().uuid().nullable().default(null) });
-export const SshWorkspaceSchema = z.object({ hosts: z.array(SshHostSchema), policies: z.array(SshPolicySchema), credentials: z.array(SshCredentialSchema), sessions: z.array(SshSessionSchema), collectedAt: z.string().datetime() });
+export const SshHostSchema = z.object({ nodeId: z.string().uuid(), state: SshStateSchema, available: z.boolean(), reason: z.string(), address: z.string(), port: z.number().int().min(1).max(65535), fingerprints: z.array(z.string()), collectedAt: z.string().datetime().nullable(), configDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable().default(null), planId: z.string().uuid().nullable().default(null), helperRegistered: z.boolean().default(false), supported: z.boolean().nullable().default(null), helperPlatform: z.string().nullable().default(null), helperCollectedAt: z.string().datetime().nullable().default(null) });
+export const SshWorkspaceSchema = z.object({ hosts: z.array(SshHostSchema), policies: z.array(SshPolicySchema), credentials: z.array(SshCredentialSchema), sessions: z.array(SshSessionSchema), collectedAt: z.string().datetime(), viewer: PublicUserSchema.nullable().default(null) });
 export type SshPolicy = z.infer<typeof SshPolicySchema>;
 export type SshPolicyInput = z.infer<typeof SshPolicyInputSchema>;
 export type SshCredential = z.infer<typeof SshCredentialSchema>;

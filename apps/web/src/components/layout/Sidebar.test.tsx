@@ -6,7 +6,7 @@ import { Sidebar } from "./Sidebar";
 function setup() {
   const setPage = vi.fn();
   const onNavigate = vi.fn();
-  const result = render(<Sidebar page="overview" setPage={setPage} collapsed={false} onToggleCollapsed={vi.fn()} onExpandCollapsed={vi.fn()} onNavigate={onNavigate} permissions={["nodes:read", "sites:read"]} />);
+  const result = render(<Sidebar page="overview" setPage={setPage} collapsed={false} onToggleCollapsed={vi.fn()} onExpandCollapsed={vi.fn()} onNavigate={onNavigate} permissions={["nodes:read", "sites:read", "ssh:read"]} />);
   return { ...result, setPage, onNavigate };
 }
 
@@ -30,7 +30,7 @@ describe("shared CloudPulse sidebar", () => {
     expect(container.querySelectorAll("button button")).toHaveLength(0);
   });
 
-  it("hides the proposed SSH module when node read permission is absent", () => {
+  it("hides SSH management without its dedicated read permission", () => {
     render(<Sidebar page="overview" setPage={vi.fn()} collapsed={false} onToggleCollapsed={vi.fn()} onExpandCollapsed={vi.fn()} onNavigate={vi.fn()} permissions={[]} />);
     expect(screen.queryByRole("button", { name: "SSH 管理" })).not.toBeInTheDocument();
   });

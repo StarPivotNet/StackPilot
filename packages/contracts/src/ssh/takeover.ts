@@ -28,6 +28,7 @@ export const SshTakeoverPlanSchema = SshTakeoverInputSchema.safeExtend({
   lastReceiptId: z.string().uuid().nullable().default(null),
   verificationId: z.string().uuid().nullable().default(null),
   appliedInventory: SshInventorySchema.nullable().default(null),
+  reverification: z.object({ requestedBy: z.string().uuid(), expiresAt: z.string().datetime() }).strict().nullable().default(null),
   evidence: z.array(z.object({ check: z.string().max(100), passed: z.boolean(), collectedAt: z.string().datetime() }).strict()).max(64),
 });
 export type SshInventory = z.infer<typeof SshInventorySchema>;

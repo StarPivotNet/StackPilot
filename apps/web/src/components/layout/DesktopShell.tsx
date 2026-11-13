@@ -240,8 +240,8 @@ function DesktopShellContent({
             {activeModule === "firewall" && <FirewallPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "deploy" && <DeployPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "schedule" && <SchedulePage page={page} notify={notify} permissions={user.permissions} />}
-            {activeModule === "ssh" && user.permissions.includes("nodes:read") && <SshManagementPage page={page} setPage={setPage} notify={notify} />}
-            {activeModule === "ssh" && !user.permissions.includes("nodes:read") && <section className="module-page"><div className="page-head"><div><h1>SSH 管理</h1><p className="page-subtitle">当前账号没有节点读取权限，请联系管理员授权。</p></div></div></section>}
+            {activeModule === "ssh" && user.permissions.includes("ssh:read") && <SshManagementPage page={page} setPage={setPage} notify={notify} user={user} />}
+            {activeModule === "ssh" && !user.permissions.includes("ssh:read") && <section className="module-page"><div className="page-head"><div><h1>SSH 管理</h1><p className="page-subtitle">当前账号没有 SSH 读取权限，请联系管理员授权。</p></div></div></section>}
             {activeModule === "audit" && user.permissions.includes("audit:read") && <AuditPage page={page} notify={notify} permissions={user.permissions} />}
             {activeModule === "acl" && <AclPage page={page} setPage={setPage} notify={notify} />}
             {activeModule === "settings" && (

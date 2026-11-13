@@ -2,9 +2,9 @@ import type { NodeScope, Permission, RoleRecordSchema, UserRecordSchema } from "
 import type { z } from "zod";
 import { requestJson } from "./client";
 export type RoleRecord=z.infer<typeof RoleRecordSchema>;export type UserRecord=z.infer<typeof UserRecordSchema>;
-export const listIdentityUsers=()=>requestJson<{users:UserRecord[]}>("/users");
+export const listIdentityUsers=(signal?:AbortSignal)=>requestJson<{users:UserRecord[]}>("/users",{signal});
 export const listIdentityRoles=()=>requestJson<{roles:RoleRecord[]}>("/roles");
-export const reauthenticate=(password:string)=>requestJson<{proof:string;expiresAt:string}>("/auth/reauthenticate",{method:"POST",body:JSON.stringify({password}),suppressSessionExpiredCodes:["REAUTHENTICATION_FAILED"]});
+export const reauthenticate=(password:string,signal?:AbortSignal)=>requestJson<{proof:string;expiresAt:string}>("/auth/reauthenticate",{method:"POST",body:JSON.stringify({password}),signal,suppressSessionExpiredCodes:["REAUTHENTICATION_FAILED"]});
 export const createIdentityUser=(payload:{username:string;displayName:string;password:string;roleIds:string[];nodeScope:NodeScope},proof:string)=>requestJson<{message:string}>("/users",{method:"POST",headers:{"X-Reauth-Proof":proof},body:JSON.stringify(payload)});
 export const updateIdentityUser=(id:string,payload:{roleIds:string[];nodeScope:NodeScope;disabled:boolean},proof:string)=>requestJson<{message:string}>(`/users/${encodeURIComponent(id)}`,{method:"PATCH",headers:{"X-Reauth-Proof":proof},body:JSON.stringify(payload)});
 export const createIdentityRole=(payload:{id:string;name:string;description:string;permissions:Permission[]},proof:string)=>requestJson<{message:string}>("/roles",{method:"POST",headers:{"X-Reauth-Proof":proof},body:JSON.stringify(payload)});

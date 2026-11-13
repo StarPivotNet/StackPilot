@@ -37,15 +37,15 @@ const pageMeta: Record<string, PageMeta> = {
   "databases-backups": { title: "备份恢复", breadcrumb: "数据库", search: "搜索备份文件" },
   files: { title: "文件", breadcrumb: "资源管理", search: "搜索文件名、路径、类型..." },
   terminal: { title: "终端", breadcrumb: "运维工具", search: "搜索会话主机或命令..." },
-  ssh: { title: "SSH 管理", breadcrumb: "运维工具", search: "搜索 SSH 主机、密钥、策略..." },
+  ssh: { title: "SSH 管理", breadcrumb: "运维工具", search: "搜索 SSH 主机、临时密码、策略..." },
   "ssh-host-detail": { title: "SSH 主机详情", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
   "ssh-precheck": { title: "连接预检", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
   "ssh-confirm": { title: "确认托管策略", breadcrumb: "SSH 管理", search: "搜索 SSH 策略..." },
   "ssh-verify": { title: "独立连接验证", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
   "ssh-complete": { title: "托管结果", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
   "ssh-rollback": { title: "回滚结果", breadcrumb: "SSH 管理", search: "搜索 SSH 主机..." },
-  "ssh-issue": { title: "签发凭据", breadcrumb: "SSH 管理", search: "搜索 SSH 密钥..." },
-  "ssh-revoke": { title: "撤销凭据", breadcrumb: "SSH 管理", search: "搜索 SSH 密钥..." },
+  "ssh-issue": { title: "申请临时密码", breadcrumb: "SSH 管理", search: "搜索 SSH 临时密码..." },
+  "ssh-revoke": { title: "撤销与断开", breadcrumb: "SSH 管理", search: "搜索 SSH 临时密码..." },
   systemd: { title: "systemd 服务", breadcrumb: "系统管理", search: "搜索服务、主机、状态..." },
   firewall: { title: "防火墙", breadcrumb: "安全管理", search: "搜索端口、协议、来源..." },
   deploy: { title: "部署", breadcrumb: "发布管理", search: "搜索应用、版本、提交..." },
@@ -129,11 +129,11 @@ const navItems: NavItem[] = [
     label: "SSH 管理",
     icon: KeyRound,
     children: [
-      { id: "ssh-hosts", label: "主机托管", meta: "只读能力状态" },
-      { id: "ssh-keys", label: "凭据与密钥", meta: "凭据管理" },
+      { id: "ssh-hosts", label: "主机托管", meta: "接管与验证状态" },
+      { id: "ssh-keys", label: "临时密码与会话", meta: "凭据管理" },
       { id: "ssh-policies", label: "访问策略", meta: "主机与账号范围" },
       { id: "ssh-audit", label: "访问审计", meta: "SSH 操作记录" },
-      { id: "ssh-rescue", label: "救援与恢复", meta: "恢复边界" },
+      { id: "ssh-rescue", label: "带外恢复", meta: "恢复边界" },
     ],
   },
   {
@@ -256,7 +256,7 @@ function desktopTopbarChrome(page: PageKey): TopbarChrome {
 
 function navItemsForPermissions(permissions: readonly Permission[]) {
   return navItems.reduce<NavItem[]>((visible, item) => {
-    if (item.key === "ssh" && !permissions.includes("nodes:read")) return visible;
+    if (item.key === "ssh" && !permissions.includes("ssh:read")) return visible;
     if (item.key === "files" && !permissions.includes("files:read")) return visible;
     if (item.key === "systemd" && !permissions.includes("systemd:read")) return visible;
     if (item.key === "schedule" && !permissions.includes("schedules:read")) return visible;

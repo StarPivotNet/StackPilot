@@ -2,6 +2,19 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.49 - 2026-11-13
+
+### Added
+
+- Connect SSH host, password/session, policy, enrollment, takeover, recovery and audit pages to scoped real APIs with single-use reauthentication and backend freshness. Replace certificate drafts with one-time passwords and out-of-band recovery guidance.
+- Add explicit independent reverification after exact committed configuration restoration, requiring fresh signed inventory and preserving the original root commit proof. Failures never reopen legacy authentication.
+- Exercise desktop/mobile Chromium issuance through an actual SSH connection and UI revocation, scoped read-only permissions, silent polling, stable details and long names. Aggregate all disk volumes and expose delayed keyboard-accessible details.
+
+### Fixed
+
+- Derive Agent version from its package manifest, prepare native CI's stock OpenSSH service explicitly and allow bounded account-creation time on slower hosts.
+- Keep SSH controls available when the optional resource directory fails, refresh viewer permissions with workspace data and distinguish unavailable entrance inspection from confirmed configuration changes.
+
 ## 0.3.0-preview.48 - 2026-11-13
 
 ### Added

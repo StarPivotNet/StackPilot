@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
-import { SshCredentialSchema, SshHostSchema, SshPolicySchema, SshSessionSchema, SshTakeoverPlanSchema, SSH_LOGIN_WINDOW_SECONDS, sshAccountName, type SshCredential, type SshPolicy, type SshPolicyInput, type SshSession } from "@stackpilot/contracts";
+import { SshCredentialSchema, SshHostSchema, SshHelperReportSchema, SshPolicySchema, SshSessionSchema, SshTakeoverPlanSchema, SSH_LOGIN_WINDOW_SECONDS, sshAccountName, type SshCredential, type SshPolicy, type SshPolicyInput, type SshSession } from "@stackpilot/contracts";
 import type { Principal } from "../../identity/types.js";
 import type { AuditRepository } from "../../audit/auditRepository.js";
 import { ServiceError } from "../serviceError.js";
@@ -72,11 +72,15 @@ export class SshService {
     const sessions = (this.db.prepare("SELECT payload FROM ssh_sessions").all() as PayloadRow[]).map(row => SshSessionSchema.parse(JSON.parse(row.payload))).filter(value => allowed(value.nodeId, value.userId));
     const hosts = (this.db.prepare("SELECT node_id FROM agent_nodes WHERE revoked_at IS NULL").all() as { node_id: string }[]).filter(row => allowed(row.node_id)).map(row => {
       const stored = this.db.prepare("SELECT payload FROM ssh_hosts WHERE node_id=?").get(row.node_id) as PayloadRow | undefined;
-      const host = stored ? SshHostSchema.parse(JSON.parse(stored.payload)) : { nodeId: row.node_id, state: "unmanaged" as const, available: false, reason: "SSH 主机执行器尚未安装或未完成独立验证", address: "", port: 22, fingerprints: [], collectedAt: null };
+      const host = SshHostSchema.parse(stored ? JSON.parse(stored.payload) : { nodeId: row.node_id, state: "unmanaged", available: false, reason: "SSH 主机执行器尚未安装或未完成独立验证", address: "", port: 22, fingerprints: [], collectedAt: null });
+      const helper = this.db.prepare("SELECT report FROM ssh_helper_credentials WHERE node_id=? AND revoked_at IS NULL").get(row.node_id) as { report: string | null } | undefined;
+      const report = helper?.report ? SshHelperReportSchema.parse(JSON.parse(helper.report)) : null;
+      host.helperRegistered = !!helper; host.supported = report?.supported ?? null; host.helperPlatform = report?.platform ?? null; host.helperCollectedAt = report?.collectedAt ?? null;
+      if (report && !report.supported) { host.available = false; host.reason = report.reason; }
       try { this.ready(row.node_id); } catch { return { ...host, available: false, reason: host.state === "managed" && host.available ? "主机采集或独立验证已失效，暂停签发" : host.reason }; }
       return host;
     });
-    return { hosts, policies, credentials, sessions, collectedAt: this.now() };
+    return { hosts, policies, credentials, sessions, collectedAt: this.now(), viewer: principal.user };
   }
   upsertPolicy(principal: Principal, input: SshPolicyInput) {
     if (!this.nodeActive(input.nodeId) || !this.db.prepare("SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL").get(input.userId)) throw new ServiceError(404, "NOT_FOUND", "节点或用户不存在");
@@ -88,7 +92,7 @@ export class SshService {
       const policy = SshPolicySchema.parse({ ...input, services: [...new Set(input.services)].sort(), id: old?.id ?? randomUUID(), account: old?.account ?? sshAccountName(input.userId), revision: (old?.revision ?? 0) + 1, appliedRevision: 0, updatedAt: this.now() });
       if (old) this.invalidate(old.id);
       this.db.prepare("INSERT INTO ssh_policies(id,node_id,user_id,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload").run(policy.id, input.nodeId, input.userId, JSON.stringify(policy));
-      this.record(principal.userId, input.nodeId, "policy.updated", policy.id, { profile: policy.profile, revision: policy.revision });
+      this.record(principal.userId, input.nodeId, "policy.updated", policy.id, { userId: policy.userId, account: policy.account, profile: policy.profile, services: policy.services, sessionSeconds: policy.sessionSeconds, enabled: policy.enabled, revision: policy.revision, previousRevision: old?.revision ?? 0 });
       return policy;
     }).immediate();
   }
@@ -114,9 +118,11 @@ export class SshService {
     const row = this.db.prepare("SELECT payload FROM ssh_takeover_plans WHERE id=?").get(planId) as PayloadRow | undefined;
     if (!row) throw denied();
     const plan = SshTakeoverPlanSchema.parse(JSON.parse(row.payload));
-    if (plan.state !== "awaiting-verification" || !plan.local || plan.local.state !== "awaiting-verification" || Date.parse(plan.local.rollbackAt) <= this.clock() || !this.nodeActive(plan.nodeId) || !this.userAllowed(plan.requestedBy, plan.nodeId)) throw denied();
-    if (!this.db.prepare("SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id WHERE ur.user_id=? AND rp.permission_key='ssh:manage'").get(plan.requestedBy)) throw denied();
-    const policyRow = this.db.prepare("SELECT payload FROM ssh_policies WHERE node_id=? AND user_id=?").get(plan.nodeId, plan.requestedBy) as PayloadRow | undefined;
+    const actor = plan.reverification?.requestedBy ?? plan.requestedBy;
+    const live = plan.reverification ? plan.local?.state === "managed" && Date.parse(plan.reverification.expiresAt) > this.clock() : plan.local?.state === "awaiting-verification" && Date.parse(plan.local.rollbackAt) > this.clock();
+    if (plan.state !== "awaiting-verification" || !live || !this.nodeActive(plan.nodeId) || !this.userAllowed(actor, plan.nodeId)) throw denied();
+    if (!this.db.prepare("SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id WHERE ur.user_id=? AND rp.permission_key='ssh:manage'").get(actor)) throw denied();
+    const policyRow = this.db.prepare("SELECT payload FROM ssh_policies WHERE node_id=? AND user_id=?").get(plan.nodeId, actor) as PayloadRow | undefined;
     if (!policyRow) throw denied();
     const policy = SshPolicySchema.parse(JSON.parse(policyRow.payload));
     if (!policy.enabled || policy.appliedRevision !== policy.revision || policy.systemUid === null || !this.db.prepare("SELECT 1 FROM ssh_helper_credentials WHERE node_id=? AND revoked_at IS NULL").get(plan.nodeId)) throw denied();
@@ -126,9 +132,9 @@ export class SshService {
   issueVerification(planId: string, negative?: "expired" | "revoked") {
     return this.db.transaction(() => {
       const { plan, policy } = this.verificationPolicy(planId), password = randomBytes(32).toString("base64url");
-      const credential = SshCredentialSchema.parse({ id: randomUUID(), nodeId: plan.nodeId, userId: plan.requestedBy, policyId: policy.id, policyRevision: policy.revision, account: policy.account, purpose: "SSH 接管独立验证", kind: "verification", planId, createdAt: this.now(), loginExpiresAt: new Date(this.clock() + (negative === "expired" ? -1 : 60_000)).toISOString(), sessionSeconds: 60, consumedAt: null, revokedAt: negative === "revoked" ? this.now() : null });
+      const credential = SshCredentialSchema.parse({ id: randomUUID(), nodeId: plan.nodeId, userId: policy.userId, policyId: policy.id, policyRevision: policy.revision, account: policy.account, purpose: "SSH 接管独立验证", kind: "verification", planId, createdAt: this.now(), loginExpiresAt: new Date(this.clock() + (negative === "expired" ? -1 : 60_000)).toISOString(), sessionSeconds: 60, consumedAt: null, revokedAt: negative === "revoked" ? this.now() : null });
       this.db.prepare("INSERT INTO ssh_credentials(id,node_id,user_id,policy_id,digest,payload) VALUES(?,?,?,?,?,?)").run(credential.id, credential.nodeId, credential.userId, policy.id, digest(password), JSON.stringify(credential));
-      this.record(plan.requestedBy, plan.nodeId, "verification.credential-issued", credential.id);
+      this.record(policy.userId, plan.nodeId, "verification.credential-issued", credential.id);
       return { credential, password, policy };
     }).immediate();
   }

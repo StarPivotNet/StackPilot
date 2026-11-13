@@ -1,21 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchHosts } from "../../api/hostsApi";
+import { fetchHosts, type HostMonitoringRecord } from "../../api/hostsApi";
 import { usePollingResource } from "../../hooks/usePollingResource";
 import type { PageKey, SetPage } from "../../types/app";
-import { emptySshDraft, type SshDraft, type SshDraftKind } from "./model";
+import type { Permission, PublicUser } from "@stackpilot/contracts";
+import { fetchSshWorkspace, fetchSshPlans } from "../../api/sshApi";
 
 export function readSshHostId(): string | null {
   const value = new URLSearchParams(window.location.search).get("sshHost");
   return value && value.length <= 160 ? value : null;
 }
 
-export function useSshWorkspace(page: PageKey, setPage: SetPage) {
-  const load = useCallback((signal: AbortSignal) => fetchHosts(signal), []);
-  const resource = usePollingResource(load);
+export function useSshWorkspace(page: PageKey, setPage: SetPage, initialUser: PublicUser | undefined) {
+  const catalogRef = useRef<HostMonitoringRecord[]>([]);
+  const load = useCallback(async (signal: AbortSignal) => {
+    const access = await fetchSshWorkspace(signal);
+    const [plans, catalog] = await Promise.all([fetchSshPlans(signal), (access.viewer ?? initialUser)?.permissions.includes("nodes:read") ? fetchHosts(signal).then(value => { catalogRef.current = value.hosts; return { hosts: value.hosts, unavailable: false }; }).catch(error => { if (signal.aborted) throw error; return { hosts: catalogRef.current, unavailable: true }; }) : Promise.resolve({ hosts: [], unavailable: false })]);
+    return { ...access, plans: plans.plans, catalog: catalog.hosts, catalogUnavailable: catalog.unavailable };
+  }, [initialUser]);
+  const resource = usePollingResource(load, null, !!initialUser?.permissions.includes("ssh:read"));
+  const user = resource.data?.viewer ?? initialUser;
+  const can = (permission: Permission, nodeId?: string) => !resource.backgroundError && !!user?.permissions.includes(permission) && (!nodeId || user.nodeScope === "all" || user.nodeScope.includes(nodeId));
+  const hosts = (resource.data?.hosts ?? []).map(host => { const catalog = resource.data?.catalog.find(item => item.id === host.nodeId); return { ...host, name: catalog?.name ?? (host.address ? `${host.address}:${host.port}` : host.nodeId), environment: catalog?.environment ?? "未分组", owner: catalog?.owner ?? "—", catalog }; });
   const [hostId, setHostId] = useState<string | null>(readSshHostId);
   const [search, setSearch] = useState("");
   const [environment, setEnvironment] = useState("全部环境");
-  const [drafts, setDrafts] = useState<Record<SshDraftKind, SshDraft>>(() => ({ takeover: emptySshDraft("takeover"), issue: emptySshDraft("issue"), policy: emptySshDraft("policy"), rescue: emptySshDraft("rescue") }));
   const detailOriginRef = useRef(false);
   const detailFocusOriginRef = useRef<{ page: PageKey; hostId: string; view: string | undefined } | null>(null);
 
@@ -84,14 +92,7 @@ export function useSshWorkspace(page: PageKey, setPage: SetPage) {
     if (detailOriginRef.current && window.history.length > 1) { detailOriginRef.current = false; window.history.back(); }
     else navigate("ssh-hosts", null);
   };
-  const draftFor = (kind: SshDraftKind): SshDraft => {
-    const current = drafts[kind];
-    return hostId && current.hostId !== hostId ? { ...emptySshDraft(kind), hostId } : current;
-  };
-  const updateDraft = (kind: SshDraftKind, next: SshDraft) => setDrafts((current) => ({ ...current, [kind]: next }));
-  const resetDraft = (kind: SshDraftKind) => setDrafts((current) => ({ ...current, [kind]: { ...emptySshDraft(kind), hostId: hostId ?? "" } }));
-
-  return { resource, hosts: resource.data?.hosts ?? [], hostId, search, setSearch, environment, setEnvironment, navigate, selectHost, openDetail, closeDetail, draftFor, updateDraft, resetDraft };
+  return { resource, hosts, user, can, hostId, search, setSearch, environment, setEnvironment, navigate, selectHost, openDetail, closeDetail };
 }
 
 export type SshWorkspace = ReturnType<typeof useSshWorkspace>;

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { hostname, platform } from "node:os";
 import { resolve } from "node:path";
 import { z } from "zod";
+const agentVersion = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 const schema = z.object({
   STACKPILOT_CONTROLLER_URL: z.string().url().refine((value) => new URL(value).protocol === "https:", "Controller URL 必须使用 HTTPS"),
@@ -50,7 +51,7 @@ export function loadAgentConfig(env: NodeJS.ProcessEnv | Record<string, string |
     rotateCredential: value.STACKPILOT_AGENT_ROTATE_CREDENTIAL === "1",
     databaseHelperSocket: resolve(value.STACKPILOT_DATABASE_HELPER_SOCKET),
     databaseCollectionSeconds: value.STACKPILOT_DATABASE_COLLECTION_SECONDS,
-    agentVersion: "0.3.0-preview.43",
+    agentVersion,
     platform: currentPlatform as AgentConfig["platform"],
   };
 }

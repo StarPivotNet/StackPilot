@@ -48,7 +48,7 @@ export function routeSshRequest(context: RequestContext) {
     sendJson(response, 202, services.ssh.terminate(principal, parts[3]!)); return;
   }
   if (parts[2] === "takeover-plans" && services.sshTakeovers) {
-    if (method === "GET") {
+    if (method === "GET" && (parts.length === 3 || parts.length === 4)) {
       identity.require(principal, "ssh:read"); const plans = services.sshTakeovers.list(principal);
       if (parts.length === 3) sendJson(response, 200, { plans, collectedAt: services.ssh.list(principal).collectedAt });
       else { const plan = plans.find(value => value.id === parts[3]); if (!plan) throw new ServiceError(404, "NOT_FOUND", "接管计划不存在"); sendJson(response, 200, plan); } return;
@@ -56,8 +56,8 @@ export function routeSshRequest(context: RequestContext) {
     if (method === "POST" && parts.length === 3) {
       const input = parseSchema(SshTakeoverInputSchema, context.body, "SSH 接管计划"); identity.require(principal, "ssh:manage", input.nodeId); reauth(); sendJson(response, 201, services.sshTakeovers.create(principal, input)); return;
     }
-    if (method === "POST" && parts.length === 5 && ["apply", "rollback"].includes(parts[4] ?? "")) {
-      const plan = services.sshTakeovers.get(parts[3]!); identity.require(principal, "ssh:manage", plan.nodeId); reauth(); sendJson(response, 202, parts[4] === "apply" ? services.sshTakeovers.apply(principal, plan.id) : services.sshTakeovers.rollback(principal, plan.id)); return;
+    if (method === "POST" && parts.length === 5 && ["apply", "rollback", "reverify"].includes(parts[4] ?? "")) {
+      const plan = services.sshTakeovers.get(parts[3]!); identity.require(principal, "ssh:manage", plan.nodeId); reauth(); sendJson(response, 202, parts[4] === "apply" ? services.sshTakeovers.apply(principal, plan.id) : parts[4] === "reverify" ? services.sshTakeovers.reverify(principal, plan.id) : services.sshTakeovers.rollback(principal, plan.id)); return;
     }
   }
   throw new ServiceError(404, "NOT_FOUND", "SSH 接口不存在");

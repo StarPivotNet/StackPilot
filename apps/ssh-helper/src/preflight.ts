@@ -43,7 +43,7 @@ async function sshBanner(listener: SshListener) {
     const host = listener.address === "*" || listener.address === "0.0.0.0" ? "127.0.0.1" : listener.address === "::" ? "::1" : listener.address;
     const socket = createConnection({ host, port: listener.port }); let raw = "", settled = false;
     const finish = (value: string | null) => { if (!settled) { settled = true; socket.destroy(); resolve(value); } };
-    socket.setTimeout(750, () => finish(null)); socket.on("error", () => finish(null)); socket.on("end", () => finish(null));
+    socket.setTimeout(3000, () => finish(null)); socket.on("error", () => finish(null)); socket.on("end", () => finish(null));
     socket.on("data", chunk => { raw += chunk.toString("ascii"); if (raw.length > 4096) finish(null); else { const banner = /^SSH-[^\r\n]+/m.exec(raw)?.[0]; if (banner) finish(banner); } });
   });
 }

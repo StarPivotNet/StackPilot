@@ -73,7 +73,7 @@ async function main() {
   const report = async () => {
     try {
       const inventory = await new SshPreflightInspector().inspect().then(value => SshInventorySchema.parse(value)).catch(() => null);
-      await controller.report(identity, { collectedAt: new Date().toISOString(), platform, version, supported: !!inventory, reason: inventory ? "原生 SSH 入口预检正常" : "SSH 入口预检失败，暂停签发", inventory, takeover: await commands.local() });
+      await controller.report(identity, { collectedAt: new Date().toISOString(), platform, version, supported: true, reason: inventory ? "原生 SSH 入口预检正常" : "SSH 入口暂无法核验，暂停签发", inventory, takeover: await commands.local() });
     } catch { /* Local leases and rollback stay independent of status delivery. */ }
     finally { if (!stopped) reportTimer = setTimeout(() => void report(), 10_000); }
   };

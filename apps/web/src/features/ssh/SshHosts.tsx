@@ -1,72 +1,46 @@
 import { ArrowRight, Eye, FileKey2, LockKeyhole, Server, Shield } from "lucide-react";
 import { useEffect } from "react";
-import type { HostMonitoringRecord } from "../../api/hostsApi";
 import { DataTable } from "../../components/ui/DataTable";
 import { DetailDrawer } from "../../components/ui/DetailDrawer";
-import { formatBackendDateTime } from "../../utils/time";
-import { sshConnectionLabel } from "./model";
-import { SshDefinition, SshNote, SshPanel, SshWaiting } from "./SshPrimitives";
+import { formatBackendDateTime as date } from "../../utils/time";
+import { hostStateLabel, sshProfiles } from "./model";
+import { SshDefinition, SshNote, SshPanel, SshStatus } from "./SshPrimitives";
 import type { SshWorkspace } from "./useSshWorkspace";
+import { SshDiskDetails } from "./SshDiskDetails";
 
-export function SshHostFreshness({ workspace }: { workspace: SshWorkspace }) {
-  return <span className="ssh-freshness">资源目录采集于 {formatBackendDateTime(workspace.resource.data?.collectedAt, "等待后端时间")}<span>SSH 保护证据：等待接入</span></span>;
+type Host = SshWorkspace["hosts"][number];
+function State({ host }: { host: Host }) { return <SshStatus state={host.available ? "success" : host.state === "manual-recovery-required" ? "error" : host.state === "drifted" || host.supported === false ? "warning" : "pending"}>{hostStateLabel(host)}</SshStatus>; }
+export function SshHostFreshness({ workspace: w }: { workspace: SshWorkspace }) { return <span className="ssh-freshness">SSH 状态采集于 {date(w.resource.data?.collectedAt, "等待后端时间")}</span>; }
+export function SshOverview({ workspace: w }: { workspace: SshWorkspace }) {
+  const data=w.resource.data, now=Date.parse(data?.collectedAt??"");
+  const metrics=[["授权范围主机",w.hosts.length,"当前账号可见的主机",Server],["可用托管主机",w.hosts.filter(h=>h.available).length,"已验证且采集有效",Shield],["待使用临时密码",data?.credentials.filter(c=>c.kind==="login"&&!c.revokedAt&&!c.consumedAt&&Date.parse(c.loginExpiresAt)>now).length??0,"只包含未过期的一次性密码",FileKey2],["未确认终止的连接",data?.sessions.filter(s=>!s.terminatedAt).length??0,"终止以主机回执为准",LockKeyhole]] as const;
+  return <><section className="ssh-metrics" aria-label="SSH 接入概览">{metrics.map(([label,value,description,Icon])=><article key={label}><Icon size={20} aria-hidden="true"/><span>{label}</span><strong>{data?value:"—"}</strong><small>{description}</small></article>)}</section>
+    <section className="ssh-section"><div className="ssh-section-heading"><div><h2>主机与访问状态</h2><p>从已登记的主机、授权和独立验证结果判断当前可用性。</p></div><button className="ssh-button ssh-button-ghost" onClick={()=>w.navigate("ssh-hosts",null)}>查看主机 <ArrowRight size={16}/></button></div><HostDirectory workspace={w} compact/></section>
+    <div className="ssh-columns"><SshPanel title="一次性访问"><SshDefinition items={[["领取窗口","密码领取后 15 分钟内可使用一次"],["系统身份","每个平台用户拥有独立受管 Linux 账号"],["会话期限","从认证成功起最多 8 小时，策略可以缩短"],["撤权","禁止新登录，并等待主机终止关联连接"]]} /><button className="ssh-button ssh-button-ghost" onClick={()=>w.navigate("ssh-keys")}>查看临时密码与会话</button></SshPanel><SshPanel title="故障恢复"><p className="ssh-body-small">平台断网时拒绝新登录，已有连接继续到原期限。失联期间无法立即远程撤权；完整 root 管理员可以修改主机管控。</p><button className="ssh-button ssh-button-ghost" onClick={()=>w.navigate("ssh-rescue")}>查看带外恢复</button></SshPanel></div></>;
 }
-
-export function SshOverview({ workspace }: { workspace: SshWorkspace }) {
-  const { resource, hosts, navigate } = workspace;
-  return <>
-    <section className="ssh-metrics" aria-label="SSH 接入概览">
-      <article><Server size={20} aria-hidden="true" /><span>资源目录主机</span><strong>{resource.data ? hosts.length : "—"}</strong><small>实际资源数量，不代表已接管</small></article>
-      <article><Shield size={20} aria-hidden="true" /><span>当前托管保护</span><strong className="ssh-metric-label">尚未核验</strong><small>等待主机端真实保护证据</small></article>
-      <article><FileKey2 size={20} aria-hidden="true" /><span>平台有效凭据</span><strong className="ssh-metric-label">等待接入</strong><small>未读取到签发服务</small></article>
-      <article><LockKeyhole size={20} aria-hidden="true" /><span>当前 SSH 会话</span><strong className="ssh-metric-label">等待接入</strong><small>未取得会话归因数据</small></article>
-    </section>
-    <section className="ssh-section"><div className="ssh-section-heading"><div><h2>准备托管范围</h2><p>从真实主机目录选择目标，保留账号与操作者的明确边界。</p></div><button className="ssh-button ssh-button-ghost" type="button" onClick={() => navigate("ssh-hosts", null)}>查看主机 <ArrowRight size={16} /></button></div><HostDirectory workspace={workspace} compact /></section>
-    <div className="ssh-columns"><SshPanel title="平台签发与范围校验"><SshDefinition items={[["允许的凭据", "平台签发的短期 SSH 用户证书"], ["授权范围", "主机 + Linux 账号 + 操作者"], ["交付材料", "专用私钥、公钥、用户证书与连接配置"], ["CA 私钥", "保留在签发服务，不向用户下发"]]} /><button className="ssh-button ssh-button-ghost" type="button" onClick={() => navigate("ssh-policies")}>查看授权策略</button></SshPanel><SshPanel title="恢复与保证边界"><p className="ssh-body-small">预检、备份、独立新连接及负向验证都需要后端证据。root 或云控制台仍能修改主机；失联或证据过期时只能显示保护状态未知。</p><button className="ssh-button ssh-button-ghost" type="button" onClick={() => navigate("ssh-rescue")}>查看救援条件</button></SshPanel></div>
-  </>;
+export function HostDirectory({ workspace:w,compact=false }: { workspace:SshWorkspace;compact?:boolean }) {
+  const query=w.search.trim().toLocaleLowerCase();
+  const filtered=w.hosts.filter(h=>(!query||`${h.name} ${h.address} ${h.owner}`.toLocaleLowerCase().includes(query))&&(w.environment==="全部环境"||h.environment===w.environment)), rows=compact?filtered.slice(0,4):filtered;
+  const identity=(h:Host)=><div className="ssh-host-identity"><strong className="ssh-host-name" title={h.name}>{h.name}</strong><span>{h.helperPlatform??h.catalog?.platform??"平台待确认"} · {h.owner}</span></div>;
+  const action=(h:Host,view="desktop")=><button className="ssh-button ssh-button-ghost ssh-host-detail-action" data-ssh-detail-host={h.nodeId} data-ssh-detail-view={view} aria-label={`查看 ${h.name} 的 SSH 托管详情`} onClick={()=>w.openDetail(h.nodeId,view)}><Eye size={16} aria-hidden="true"/>详情</button>;
+  return <div className="ssh-host-list"><DataTable columns={[
+    {key:"name",label:"主机",width:"28%",render:identity},
+    {key:"address",label:"地址 / 环境",width:"24%",render:h=><div className="ssh-host-identity"><code title={h.address||h.catalog?.address||"地址待登记"}>{h.address||h.catalog?.address||"地址待登记"}</code><span>{h.environment}</span></div>},
+    {key:"state",label:"接管状态",width:"30%",render:h=><State host={h}/>},
+    {key:"action",label:"操作",width:"18%",render:h=>action(h)},
+  ]} rows={rows} getRowKey={h=>h.nodeId} emptyText={w.resource.loading?"正在读取 SSH 状态…":filtered.length===0&&query?"没有匹配的主机":"当前授权范围暂无主机，系统将继续自动读取"} mobileCard={h=><><header className="ssh-mobile-host-heading">{identity(h)}<State host={h}/></header><code className="ssh-host-address">{h.address||h.catalog?.address||"地址待登记"}</code><span>{h.environment}</span><footer>{action(h,"mobile")}</footer></>}/><div className="ssh-directory-footer"><span>{filtered.length} 台匹配主机{compact&&filtered.length>4?"，展示前 4 台":""}</span><SshHostFreshness workspace={w}/></div></div>;
 }
-
-export function HostDirectory({ workspace, compact = false }: { workspace: SshWorkspace; compact?: boolean }) {
-  const { hosts, resource, search, environment, openDetail } = workspace;
-  const query = search.trim().toLocaleLowerCase();
-  const filtered = hosts.filter((host) => (!query || `${host.name} ${host.address ?? ""} ${host.owner}`.toLocaleLowerCase().includes(query)) && (environment === "全部环境" || host.environment === environment));
-  const rows = compact ? filtered.slice(0, 4) : filtered;
-  const hostIdentity = (host: HostMonitoringRecord) => <div className="ssh-host-identity"><strong className="ssh-host-name" title={host.name}>{host.name}</strong><span>{host.platform === "linux" ? "Linux" : host.platform} · {host.owner}</span></div>;
-  const actions = (host: HostMonitoringRecord, view = "desktop") => <button className="ssh-button ssh-button-ghost ssh-host-detail-action" type="button" data-ssh-detail-host={host.id} data-ssh-detail-view={view} aria-label={`查看 ${host.name} 的 SSH 托管详情`} onClick={() => openDetail(host.id, view)}><Eye size={16} aria-hidden="true" />详情</button>;
-  const empty = resource.loading ? "正在读取真实资源目录…" : resource.error ? "资源目录暂不可用，未显示示例主机。" : query || environment !== "全部环境" ? "没有匹配的主机，请调整筛选条件。" : "资源目录尚无主机，系统将继续自动读取。";
-  return <div className="ssh-host-list">
-    {resource.error && !resource.data && <div className="ssh-load-error" role="alert"><Shield size={20} aria-hidden="true" /><span>{resource.error}</span><button className="ssh-button ssh-button-ghost" type="button" onClick={() => void resource.retry()}>重试</button></div>}
-    {resource.backgroundError && resource.data && <p className="ssh-body-small" role="status">资源目录更新暂时中断，保留上次采集结果与时间。</p>}
-    <DataTable columns={[
-      { key: "name", label: "主机", width: "26%", render: hostIdentity },
-      { key: "address", label: "地址 / 环境", width: "22%", render: (host) => <div className="ssh-host-identity"><code title={host.address ?? "地址未提供"}>{host.address ?? "地址未提供"}</code><span>{host.environment}</span></div> },
-      { key: "connection", label: "资源连接", width: "14%", render: (host) => <span className="ssh-resource-state">{sshConnectionLabel(host)}</span> },
-      { key: "ssh", label: "SSH 托管", width: "24%", render: () => <SshWaiting>尚未启用</SshWaiting> },
-      { key: "action", label: "操作", width: "14%", render: (host) => actions(host) },
-    ]} rows={rows} getRowKey={(host) => host.id} emptyText={empty} mobileCard={(host) => <><header className="ssh-mobile-host-heading">{hostIdentity(host)}<SshWaiting>尚未启用</SshWaiting></header><code className="ssh-host-address">{host.address ?? "地址未提供"}</code><div className="ssh-mobile-host-meta"><span>{host.environment}</span><span>{sshConnectionLabel(host)}</span></div><footer>{actions(host, "mobile")}</footer></>} />
-    <div className="ssh-directory-footer"><span>{resource.data ? `${filtered.length} 台匹配资源${compact && filtered.length > 4 ? "，展示前 4 台" : ""}` : "等待资源目录"}</span><SshHostFreshness workspace={workspace} /></div>
-  </div>;
-}
-
-export function SshHosts({ workspace, detail }: { workspace: SshWorkspace; detail: boolean }) {
-  const { hosts, hostId, resource, search, setSearch, environment, setEnvironment, navigate } = workspace;
-  const selected = hosts.find((host) => host.id === hostId) ?? null;
-  const opened = detail && selected !== null;
-  useEffect(() => {
-    if (!opened) return;
-    const oldOverflow = document.body.style.overflow;
-    const oldPadding = document.body.style.paddingRight;
-    const gutter = document.documentElement.clientWidth ? Math.max(0, window.innerWidth - document.documentElement.clientWidth) : 0;
-    if (gutter) document.body.style.paddingRight = `${(Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0) + gutter}px`;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = oldOverflow; document.body.style.paddingRight = oldPadding; };
-  }, [opened]);
-  return <>
-    <div className="ssh-filter-row"><label className="ssh-search-field"><span>搜索主机</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="主机名、IP 或负责人" /></label><label className="ssh-select-field"><span>环境</span><select value={environment} onChange={(event) => setEnvironment(event.target.value)}><option>全部环境</option>{[...new Set(hosts.map((host) => host.environment))].sort().map((item) => <option key={item}>{item}</option>)}</select></label><button className="ssh-button ssh-button-primary" type="button" onClick={() => navigate("ssh-precheck", hostId)}>准备接管草稿</button></div>
-    {detail && hostId && resource.data && !selected && <SshNote title="原目标已不在资源目录，详情已关闭">未切换到其他主机。请返回清单选择可用目标。<button className="ssh-button ssh-button-ghost" type="button" onClick={() => navigate("ssh-hosts", null)}>返回主机清单</button></SshNote>}
-    {detail && !hostId && <SshNote title="尚未选择目标主机">从资源目录选择主机后再查看身份与接入条件。</SshNote>}
-    <HostDirectory workspace={workspace} />
-    <SshNote title="资源在线不等于 SSH 已验证">当前仅有资源目录数据，尚未取得 SSH 主机指纹、认证来源、有效配置或平台证书验证结果。</SshNote>
-    {opened && <DetailDrawer title={selected.name} subtitle={`${selected.address ?? "地址未提供"} · ${selected.environment}`} className="ssh-host-drawer" modal closeLabel="关闭 SSH 主机详情" onClose={workspace.closeDetail} actions={<button className="ssh-button ssh-button-ghost" type="button" onClick={() => navigate("ssh-precheck", selected.id)}>准备此主机草稿</button>}><SshWaiting>SSH 托管尚未启用</SshWaiting><SshDefinition items={[["稳定主机 ID", <code>{selected.id}</code>], ["资源地址", selected.address ?? "未提供"], ["平台", selected.platform], ["负责人", selected.owner], ["资源连接", sshConnectionLabel(selected)], ["资源采集时间", formatBackendDateTime(selected.telemetryCollectedAt ?? resource.data?.collectedAt)], ["SSH 主机指纹", "等待后端预检"], ["平台 CA / principal", "等待授权与验证"], ["当前保护证据", "尚未取得，不能确认托管保护"], ["策略 / 吊销版本", "等待后端接入"]]} /><SshNote title="只作用于托管 SSH 入口">拥有 root 或云控制台权限的人仍可能修改配置；额外入口、失联或证据过期都需独立判断。</SshNote></DetailDrawer>}
+export function SshHosts({ workspace:w,detail }: {workspace:SshWorkspace;detail:boolean}) {
+  const { hostId, navigate, resource: { data } } = w;
+  const selected=w.hosts.find(h=>h.nodeId===w.hostId),opened=detail&&!!selected;
+  useEffect(()=>{if(!opened)return;const oldOverflow=document.body.style.overflow;const oldPadding=document.body.style.paddingRight;const gutter=document.documentElement.clientWidth?Math.max(0,window.innerWidth-document.documentElement.clientWidth):0;if(gutter)document.body.style.paddingRight=`${(Number.parseFloat(getComputedStyle(document.body).paddingRight)||0)+gutter}px`;document.body.style.overflow="hidden";return()=>{document.body.style.overflow=oldOverflow;document.body.style.paddingRight=oldPadding;};},[opened]);
+  useEffect(()=>{if(detail&&hostId&&data&&!selected)navigate("ssh-hosts",null);},[detail,hostId,data,selected,navigate]);
+  const catalog=selected?.catalog, policy=w.resource.data?.policies.find(p=>p.nodeId===w.hostId&&p.userId===w.user?.id);
+  const pct=(v:number|null|undefined)=>v===null||v===undefined?"等待采集":`${v.toFixed(1)}%`;
+  return <><div className="ssh-filter-row"><label className="ssh-search-field"><span>搜索主机</span><input value={w.search} onChange={e=>w.setSearch(e.target.value)} placeholder="主机名、IP 或负责人"/></label><label className="ssh-select-field"><span>环境</span><select value={w.environment} onChange={e=>w.setEnvironment(e.target.value)}><option>全部环境</option>{[...new Set(w.hosts.map(h=>h.environment))].sort().map(item=><option key={item}>{item}</option>)}</select></label><button className="ssh-button ssh-button-primary" disabled={!w.can("ssh:manage")} onClick={()=>w.navigate("ssh-precheck",w.hostId)}>主机接管</button></div><HostDirectory workspace={w}/>
+    <SshNote title="接管按真实入口验收">仅支持 Debian 12、Ubuntu 24.04 的原生 OpenSSH、PAM 和 systemd。无法识别的服务、额外 SSH 入口与配置漂移会阻止接管或暂停签发。</SshNote>
+    {opened&&selected&&<DetailDrawer title={selected.name} subtitle={`${selected.address||catalog?.address||"地址待登记"} · ${selected.environment}`} className="ssh-host-drawer" modal onClose={w.closeDetail} closeLabel="关闭 SSH 主机详情" actions={<button className="ssh-button ssh-button-primary" onClick={()=>w.navigate(selected.available?"ssh-issue":"ssh-precheck",selected.nodeId)}>{selected.available?"申请临时密码":"查看接管流程"}</button>}><State host={selected}/><SshDefinition items={[
+      ["节点 ID",<code>{selected.nodeId}</code>],["当前说明",selected.reason],["平台",selected.helperPlatform??catalog?.platform??"等待确认"],["负责人",selected.owner],["SSH 状态时间",date(selected.collectedAt)],["主机端采集时间",date(selected.helperCollectedAt)],["SSH 主机指纹",selected.fingerprints.length?selected.fingerprints.map(pin=><code key={pin}>{pin}</code>):"尚未预检"],["当前账号授权",policy?`${policy.account} · ${sshProfiles[policy.profile]}`:"未配置"],["连接状态",catalog?.connectionStatus??"等待采集"],["延迟",catalog?.latency!=null?`${catalog.latency} ms`:"等待采集"],["CPU / 内存",`${pct(catalog?.cpuPercent)} / ${pct(catalog?.memory?.percent)}`],["磁盘",<SshDiskDetails disk={catalog?.disk??null}/>],["版本",catalog?.version??"等待采集"],["运行时间",catalog?.uptimeSeconds!=null?`${Math.floor(catalog.uptimeSeconds/3600)} 小时`:"等待采集"],["备份",catalog?.backup?.detail??"未提供"],["更新状态",catalog?.updateStatus??"未提供"],["服务实例",catalog?.services.length?catalog.services.map(s=><span key={s.name}>{s.name} · {s.status}<br/></span>):"未提供"],
+    ]}/><SshNote title="带外恢复独立于 SSH">云控制台、VNC 或串口是故障恢复入口。断开连接不会撤销已经完成的系统操作。</SshNote></DetailDrawer>}
   </>;
 }

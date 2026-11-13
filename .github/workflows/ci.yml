@@ -30,7 +30,10 @@ jobs:
       - name: Install locked workspace dependencies
         run: npm ci
       - name: Install PAM build dependencies
-        run: sudo apt-get update && sudo apt-get install --yes build-essential libpam0g-dev
+        run: |
+          sudo apt-get update && sudo apt-get install --yes build-essential libpam0g-dev openssh-server sudo
+          sudo systemctl start ssh.service
+          sudo systemctl show ssh.service --property=ActiveState,MainPID,FragmentPath,DropInPaths,ExecStart,EnvironmentFiles,KillMode
       - name: Build helper and native PAM module
         run: |
           npm run build --workspace @stackpilot/contracts

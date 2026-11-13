@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.64 - 2026-11-13
+
+### Added
+
+- Verify the explicit host-admin policy on the Debian disposable VM with real SSH sudo UID 0, then return and acknowledge the shell policy. Keep service-operator real SSH acceptance explicitly open.
+
 ## 0.3.0-preview.63 - 2026-11-13
 
 ### Added

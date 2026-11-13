@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/host-telemetry",
   "private": true,
-  "version": "0.3.0-preview.63",
+  "version": "0.3.0-preview.64",
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {
@@ -18,7 +18,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@stackpilot/contracts": "0.3.0-preview.63"
+    "@stackpilot/contracts": "0.3.0-preview.64"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

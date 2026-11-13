@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.63 - 2026-11-13
+
+### Added
+
+- Verify the real 120-second managed shell session deadline on both disposable VMs; sessions closed around 119 seconds through their local systemd scopes without Controller revocation.
+
 ## 0.3.0-preview.62 - 2026-11-13
 
 ### Added

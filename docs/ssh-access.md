@@ -96,4 +96,6 @@ The follow-up native-client probe used fresh one-time passwords on both restored
 
 An additional disposable-VM fault probe killed and observed automatic restart of the root helper on both hosts while a managed SSH session was open, then revoked its credential and confirmed the live transport closed after the helper recovered. Partition duration, OpenSSH `scp`/ControlMaster, full service/root profiles, and real non-root Agent coexistence remain outside this evidence.
 
+The real login-policy deadline probe then opened ordinary managed sessions on both hosts under the 120-second shell policy. The sessions closed at approximately 119 seconds through the local scope deadline without a Controller revoke request.
+
 `GET /api/ssh-helper/state` derives current authorization and termination requirements without mutating stored session state. `POST /api/ssh-helper/sessions/ack` accepts `{sessionId,connectionId}` only for the authenticated node, records backend receipt time after a helper-confirmed close, and is idempotent. The helper retains pending receipts if delivery fails; requests and actual closure remain distinct. See the [root helper workspace](../apps/ssh-helper/README.md) for its native build and validation limits.

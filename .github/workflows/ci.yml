@@ -32,6 +32,9 @@ jobs:
       - name: Install PAM build dependencies
         run: |
           sudo apt-get update && sudo apt-get install --yes build-essential libpam0g-dev openssh-server sudo
+          # Hosted runners ship this grant writable by its owner; production validation requires 0440.
+          sudo chmod 0440 /etc/sudoers.d/runner
+          sudo visudo -c
           sudo systemctl start ssh.service
           sudo systemctl show ssh.service --property=ActiveState,MainPID,FragmentPath,DropInPaths,ExecStart,EnvironmentFiles,KillMode
       - name: Build helper and native PAM module

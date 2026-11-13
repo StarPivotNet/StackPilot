@@ -1,7 +1,7 @@
 {
   "name": "stackpilot",
   "private": true,
-  "version": "0.3.0-preview.49",
+  "version": "0.3.0-preview.50",
   "license": "AGPL-3.0-only",
   "workspaces": [
     "packages/*",
@@ -37,11 +37,11 @@
     "@cyclonedx/cyclonedx-npm": "^6.0.0",
     "@eslint/js": "^9.39.2",
     "@playwright/test": "^1.61.1",
-    "concurrently": "^9.2.1",
+    "concurrently": "^9.2.5",
     "eslint": "^9.39.2",
     "globals": "^16.5.0",
     "selfsigned": "^5.5.0",
-    "tar": "^7.5.19",
+    "tar": "^7.5.23",
     "typescript-eslint": "^8.50.0"
   }
 }

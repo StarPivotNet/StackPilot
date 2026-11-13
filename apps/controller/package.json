@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/controller",
   "private": true,
-  "version": "0.3.0-preview.49",
+  "version": "0.3.0-preview.50",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -22,9 +22,9 @@
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
-    "@stackpilot/config": "0.3.0-preview.49",
-    "@stackpilot/contracts": "0.3.0-preview.49",
-    "@stackpilot/host-telemetry": "0.3.0-preview.49",
+    "@stackpilot/config": "0.3.0-preview.50",
+    "@stackpilot/contracts": "0.3.0-preview.50",
+    "@stackpilot/host-telemetry": "0.3.0-preview.50",
     "better-sqlite3": "^12.11.1",
     "cron-parser": "^5.6.2",
     "ssh2": "1.17.0",

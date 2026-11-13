@@ -2,6 +2,14 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.50 - 2026-11-13
+
+### Fixed
+
+- Update compatible dependency resolutions and minimum Vite, Vitest, tar and concurrently versions to clear the dependency audit's high/critical findings. Keep the existing audit threshold; unresolved moderate development-tool findings remain visible.
+- Pin the Web runtime to the official Nginx 1.30.6 Alpine 3.24 slim image digest instead of the vulnerable older Alpine runtime. Container scanning remains mandatory.
+- Resolve the native entrypoint test relative to its own module so workspace-local npm tests exercise the installed symlink correctly. Normalize the hosted runner's existing sudo grant to strict permissions before native boundary tests; production validation is unchanged.
+
 ## 0.3.0-preview.49 - 2026-11-13
 
 ### Added

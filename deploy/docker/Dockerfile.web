@@ -7,7 +7,7 @@ COPY packages packages
 RUN --mount=type=cache,target=/root/.npm npm ci
 RUN npm run build --workspace @stackpilot/web
 
-FROM nginx:1.30.3-alpine3.23-slim@sha256:d5b51cfc7d55fc7a7bcf4d1d577b9c3738331df56d68f0b1d8ac9795b9470a5a
+FROM nginx:1.30.6-alpine3.24-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893
 COPY deploy/nginx/container.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/apps/web/dist /usr/share/nginx/html
 USER 101:101

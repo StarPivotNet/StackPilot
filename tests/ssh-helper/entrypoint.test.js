@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, writeFile, symlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 
@@ -11,7 +11,7 @@ test("installed current symlink runs the real entrypoint while module imports st
   const directory = await mkdtemp(join(tmpdir(), "stackpilot-ssh-entry-"));
   try {
     const entry = join(directory, "entry.mjs"), current = join(directory, "current.mjs"), importer = join(directory, "import.mjs");
-    const utility = pathToFileURL(resolve("apps/ssh-helper/dist/entrypoint.js")).href;
+    const utility = new URL("../../apps/ssh-helper/dist/entrypoint.js", import.meta.url).href;
     await writeFile(entry, `import { isEntrypoint } from ${JSON.stringify(utility)}; console.log(await isEntrypoint(import.meta.url));\n`);
     await symlink(entry, current); await writeFile(importer, `import ${JSON.stringify(pathToFileURL(entry).href)};\n`);
     const run = promisify(execFile);

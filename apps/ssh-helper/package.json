@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/ssh-helper",
   "private": true,
-  "version": "0.3.0-preview.49",
+  "version": "0.3.0-preview.50",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -12,6 +12,6 @@
     "test": "npm run build && node --test ../../tests/ssh-helper/*.test.js",
     "build:pam": "make -C native"
   },
-  "dependencies": { "@stackpilot/contracts": "0.3.0-preview.49", "zod": "^4.6.7" },
+  "dependencies": { "@stackpilot/contracts": "0.3.0-preview.50", "zod": "^4.6.7" },
   "devDependencies": { "@types/node": "^25.9.3", "typescript": "^5.9.3" }
 }

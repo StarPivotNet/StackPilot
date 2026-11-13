@@ -2,7 +2,7 @@
 
 StackPilot 是开源自托管多服务器总控台。当前仓库采用 npm workspaces，包含前端控制台、Node.js Controller API、非 root Agent、root-only 数据库 helper 和共享运行时契约。
 
-> **项目成熟度：预览版。** 当前版本为 `0.3.0-preview.47`，提供可重复的部署、迁移、回滚和发布验证流程，但尚未达到稳定生产发布条件，也不提供 SLA。正式支持范围和已验证边界见[兼容性矩阵](docs/compatibility.md)。
+> **项目成熟度：预览版。** 当前版本为 `0.3.0-preview.48`，提供可重复的部署、迁移、回滚和发布验证流程，但尚未达到稳定生产发布条件，也不提供 SLA。正式支持范围和已验证边界见[兼容性矩阵](docs/compatibility.md)。
 
 ## 当前前端范围
 
@@ -33,7 +33,7 @@ tests/          Controller、Web、公共包和架构边界测试
 
 Controller 与 Agent 通信的威胁、信任边界和残余风险记录在 [Controller-Agent 威胁模型](docs/security/controller-agent-threat-model.md)。Agent 是独立 TypeScript 进程，不导入 Controller 内部实现。
 
-SSH 管理已接通 Controller、独立 root helper、原生 PAM 与接管验证 API，并在两种受支持的测试虚拟机完成基础接管。安装器、管理页面和完整故障验收仍在实现；升级不会自动接管服务器。见 [SSH 实现状态](docs/ssh-access.md)。
+SSH 管理已接通 Controller、独立 root helper、原生 PAM 与接管验证 API，并在两种受支持的测试虚拟机完成基础接管。提供独立的被动安装器和显式注册服务；管理页面与完整故障验收仍在实现，升级不会自动接管服务器。见 [SSH 实现状态](docs/ssh-access.md)。
 
 ## 本地运行
 
@@ -209,7 +209,7 @@ npm run build
 npm run test:e2e
 npm audit --audit-level=high
 npm run release:build
-npm run release:verify -- output/release/0.3.0-preview.47/SHA256SUMS
+npm run release:verify -- output/release/0.3.0-preview.48/SHA256SUMS
 npm run release:scan
 ```
 

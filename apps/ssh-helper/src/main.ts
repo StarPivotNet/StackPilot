@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { open, readFile } from "node:fs/promises";
-import { createPublicKey } from "node:crypto";
+import { createPublicKey, generateKeyPairSync } from "node:crypto";
+import { dirname } from "node:path";
 import { ControllerClient, ControllerError } from "./controllerClient.js";
 import { SshInventorySchema, type SshTakeoverReceipt } from "@stackpilot/contracts";
 import { RootStore } from "./store.js";
@@ -14,8 +15,10 @@ import { SshPreflightInspector } from "./preflight.js";
 import { requireNativeSshHost } from "./environment.js";
 import { isEntrypoint } from "./entrypoint.js";
 import { TakeoverCommands } from "./takeoverCommands.js";
+import { rootDirectory, rootFile } from "./files.js";
 
 export async function readEnrollment(path: string) {
+  await rootDirectory(dirname(path));
   const fd = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try { const stat = await fd.stat(); if (!stat.isFile() || stat.uid !== 0 || stat.nlink !== 1 || (stat.mode & 0o077) || stat.size > 1024) throw new Error("Enrollment file must be root-only"); const token = (await fd.readFile("utf8")).trim(); if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error("Invalid SSH enrollment credential"); return token; } finally { await fd.close(); }
 }
@@ -23,19 +26,23 @@ async function main() {
   const platform = await requireNativeSshHost();
   if (process.argv[2] === "preflight") { process.stdout.write(`${JSON.stringify(await new SshPreflightInspector().inspect())}\n`); return; }
   const store = new RootStore(process.env.STACKPILOT_SSH_STATE_DIR ?? "/var/lib/stackpilot-ssh-helper"); await store.prepare();
-  const ca = process.env.STACKPILOT_SSH_CA_FILE ? await readFile(process.env.STACKPILOT_SSH_CA_FILE, "utf8") : undefined;
+  const caPath = process.env.STACKPILOT_SSH_CA_FILE;
+  if (caPath) await rootDirectory(dirname(caPath));
+  const ca = caPath ? await rootFile(caPath) : undefined;
   const controller = new ControllerClient(process.env.STACKPILOT_SSH_CONTROLLER_URL ?? "", ca);
-  const privateKey = await store.key();
   if (process.argv[2] === "enroll") {
     const expectedNode = process.env.STACKPILOT_SSH_NODE_ID;
     if (!expectedNode || !/^[0-9a-f-]{36}$/.test(expectedNode)) throw new Error("Expected SSH node ID is required");
+    // Explicit enrollment always replaces the host key. Store the returned
+    // credential and matching private key in one atomic protected record.
+    const privateKey = generateKeyPairSync("ed25519").privateKey;
     const credential = await controller.enroll(await readEnrollment(process.env.STACKPILOT_SSH_ENROLLMENT_FILE ?? "/etc/stackpilot-ssh-helper/enrollment-token"), createPublicKey(privateKey).export({ type: "spki", format: "pem" }).toString());
     if (credential.nodeId !== expectedNode) throw new Error("SSH enrollment targeted a different node");
-    await store.write("identity.json", JSON.stringify({ nodeId: credential.nodeId, credentialId: credential.credentialId }));
+    await store.saveEnrollment({ nodeId: credential.nodeId, credentialId: credential.credentialId }, privateKey.export({ type: "pkcs8", format: "pem" }).toString());
     process.stdout.write("SSH helper enrolled. SSH authentication configuration is unchanged.\n"); return;
   }
   if (process.argv[2] !== undefined && process.argv[2] !== "run") throw new Error("Unknown SSH helper command");
-  const identity = { ...await store.identity(), privateKey };
+  const identity = { ...await store.identity(), privateKey: await store.key() };
   const processes = new ProcessInspector(); await processes.cgroup(process.pid);
   const services = new ServiceInspector();
   const accounts: AccountManager = new AccountManager(store, identity.nodeId, account => runtime.terminateAccount(account), unit => services.validate(unit)); await accounts.initialize();

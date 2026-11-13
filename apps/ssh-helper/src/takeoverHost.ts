@@ -9,6 +9,7 @@ import { RollbackTimer } from "./rollbackTimer.js";
 import { managedSshConfiguration, MANAGED_PAM, verifyManagedSshConfiguration } from "./sshConfiguration.js";
 import type { TakeoverOperations } from "./takeover.js";
 import type { TakeoverJournal } from "./takeoverJournal.js";
+import { requireBootRecovery } from "./recoveryReadiness.js";
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 export class TakeoverHost implements TakeoverOperations {
@@ -19,7 +20,7 @@ export class TakeoverHost implements TakeoverOperations {
   bootMs() { return this.processes.bootMs(); }
   bootId() { return this.processes.bootId(); }
   inspect() { return this.inspector.inspect(); }
-  armRollback(planId: string, deadlineBootMs: number) { return this.timer.arm(planId, deadlineBootMs); }
+  async armRollback(planId: string, deadlineBootMs: number) { await requireBootRecovery(this.run); return this.timer.arm(planId, deadlineBootMs); }
   rollbackArmed(planId: string) { return this.timer.armed(planId); }
   cancelRollback(planId: string) { return this.timer.cancel(planId); }
   async backup(): Promise<TakeoverJournal["backups"]> {

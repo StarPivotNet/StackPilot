@@ -8,7 +8,7 @@ import { rootDirectory } from "./files.js";
 
 export const LocalSessionSchema = z.object({ session: SshSessionSchema, bootId: z.string().uuid(), monitorPid: z.number().int().min(2), monitorStart: z.string().regex(/^\d+$/), scope: z.string().regex(/^stackpilot-ssh-[0-9a-f-]{36}\.scope$/), cgroup: z.string().regex(/^\/[a-zA-Z0-9_./@:-]+$/).refine(value => !value.split("/").includes("..")), deadlineBootMs: z.number().positive(), terminationRequested: z.boolean(), terminated: z.boolean(), acknowledged: z.boolean() }).strict().refine(value => value.scope === `stackpilot-ssh-${value.session.id}.scope` && value.cgroup.endsWith(`/${value.scope}`), "SSH scope must match its session");
 export type LocalSession = z.infer<typeof LocalSessionSchema>;
-const StoredIdentitySchema = z.object({ nodeId: z.string().uuid(), credentialId: z.string().uuid() }).strict();
+const StoredIdentitySchema = z.object({ nodeId: z.string().uuid(), credentialId: z.string().uuid(), privateKeyPem: z.string().max(4096).optional() }).strict();
 export class RootStore {
   constructor(readonly directory: string) {}
   async prepare() {
@@ -34,13 +34,21 @@ export class RootStore {
   }
   async key() {
     let pem: string;
+    try {
+      const identity = StoredIdentitySchema.parse(JSON.parse(await this.read("identity.json")));
+      if (identity.privateKeyPem) { const key = createPrivateKey(identity.privateKeyPem); if (key.asymmetricKeyType !== "ed25519") throw new Error("Invalid enrolled SSH helper private key"); return key; }
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
     try { pem = await this.read("identity.pem"); } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       pem = generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }).toString(); await this.write("identity.pem", pem, false); pem = await this.read("identity.pem");
     }
     const key = createPrivateKey(pem); if (key.asymmetricKeyType !== "ed25519") throw new Error("Invalid SSH helper private key"); return key;
   }
-  async identity() { return StoredIdentitySchema.parse(JSON.parse(await this.read("identity.json"))); }
+  async saveEnrollment(identity: { nodeId: string; credentialId: string }, privateKeyPem: string) {
+    const key = createPrivateKey(privateKeyPem); if (key.asymmetricKeyType !== "ed25519") throw new Error("Invalid SSH enrollment key");
+    await this.write("identity.json", JSON.stringify(StoredIdentitySchema.parse({ ...identity, privateKeyPem })));
+  }
+  async identity() { const { nodeId, credentialId } = StoredIdentitySchema.parse(JSON.parse(await this.read("identity.json"))); return { nodeId, credentialId }; }
   async sessions() {
     try { return z.array(LocalSessionSchema).max(1024).parse(JSON.parse(await this.read("sessions.json"))); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
   }

@@ -9,6 +9,7 @@ import { TakeoverJournalStore } from "./takeoverJournal.js";
 import { ProbeKeys } from "./probeKeys.js";
 import { SshPreflightInspector } from "./preflight.js";
 import { rootDirectory, rootExecutable, rootFile } from "./files.js";
+import { requireBootRecovery } from "./recoveryReadiness.js";
 
 type AccountBinding = { binding(account: string, policyId: string, revision: number): Promise<{ uid: number; home: string }> };
 const execute = promisify(execFile);
@@ -30,7 +31,7 @@ export class TakeoverCommands {
     const command = SshTakeoverCommandSchema.parse(raw);
     const result: SshTakeoverReceipt = { commandId: command.id, planId: command.planId, successful: false, inventory: null, local: null, error: null };
     try {
-      if (command.action === "preflight") { if (await realpath(this.store.directory) !== "/var/lib/stackpilot-ssh-helper") throw new Error("SSH takeover requires the installed systemd state directory"); result.inventory = SshInventorySchema.parse(await this.inspector.inspect()); }
+      if (command.action === "preflight") { if (await realpath(this.store.directory) !== "/var/lib/stackpilot-ssh-helper") throw new Error("SSH takeover requires the installed systemd state directory"); await requireBootRecovery(); result.inventory = SshInventorySchema.parse(await this.inspector.inspect()); }
       else if (command.action === "probe-key") {
         if (!command.account || !command.policyId || !command.policyRevision || !command.probePublicKey) throw new Error("Missing probe binding");
         const binding = await this.accounts.binding(command.account, command.policyId, command.policyRevision);

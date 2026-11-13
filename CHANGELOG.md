@@ -2,6 +2,18 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.48 - 2026-11-13
+
+### Added
+
+- Add a passive native SSH helper installer with protected versioned releases, production-only dependencies, target-host PAM/wrapper compilation and atomic installed files. Installation does not start services or switch SSH authentication.
+- Add a separate explicit enrollment unit and atomically bind every newly generated enrollment key to its returned host credential. Preserve compatibility with existing enrolled keys until explicit reenrollment.
+- Require persistent boot recovery dependencies for both SSH service and socket activation before a takeover trial; test refusal when either dependency is missing.
+
+### Fixed
+
+- Reject writable enrollment/CA parent directories and unprotected CA files. Refuse installation while the helper is active or a takeover requires recovery.
+
 ## 0.3.0-preview.47 - 2026-11-13
 
 ### Added

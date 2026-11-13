@@ -9,4 +9,5 @@ export async function requireNativeSshHost() {
   const os = await readFile("/etc/os-release", "utf8"), id = /^ID=["']?([^\n"']+)/m.exec(os)?.[1], version = /^VERSION_ID=["']?([^\n"']+)/m.exec(os)?.[1];
   if (!((id === "debian" && version === "12") || (id === "ubuntu" && version === "24.04"))) throw new Error("SSH helper requires Debian 12 or Ubuntu 24.04");
   const cgroup = await readFile("/proc/self/cgroup", "utf8"); if (!/^0::\//m.test(cgroup)) throw new Error("SSH helper requires unified cgroup v2");
+  return id === "debian" ? "debian-12" as const : "ubuntu-24.04" as const;
 }

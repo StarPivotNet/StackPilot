@@ -41,6 +41,12 @@ export class AccountManager {
     await verifyEffectiveSudo(record.policy, this.run);
   }
   private async sudoContents(account: string) { try { return await rootFile(join(this.paths.sudoers, `stackpilot-ssh-${account}`)); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return ""; throw error; } }
+  async binding(account: string, policyId: string, revision: number) {
+    await this.verify(account);
+    const record = this.records.find(value => value.account === account && value.policyId === policyId && value.revision === revision && value.enabled && value.status === "ready");
+    if (!record) throw new Error("SSH policy binding changed before takeover preparation");
+    return { uid: record.uid, home: join(this.paths.homes, account) };
+  }
   async apply(raw: SshPolicy) {
     const result = this.tail.then(async () => {
       try { return await this.applyExclusive(raw); }

@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/contracts",
   "private": true,
-  "version": "0.3.0-preview.46",
+  "version": "0.3.0-preview.47",
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {
@@ -18,7 +18,7 @@
     "test": "npm run build && node --test ../../tests/contracts/contracts.test.js"
   },
   "dependencies": {
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

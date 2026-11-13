@@ -35,6 +35,7 @@ import type { Principal } from "../identity/types.js";
 export type Services = {
   ssh?: import("../modules/ssh/sshService.js").SshService;
   sshHelpers?: import("../modules/ssh/sshHelperService.js").SshHelperService;
+  sshTakeovers?: import("../modules/ssh/sshTakeoverService.js").SshTakeoverService;
   overview: OverviewService;
   hosts: HostMonitoringService;
   databaseInstances: DatabaseMonitoringService;

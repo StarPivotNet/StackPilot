@@ -67,6 +67,8 @@ import { AuditExportService } from "./modules/audit/auditExportService.js";
 import { FileScheduleExecutionRepository } from "./modules/schedules/scheduleExecutionRepository.js";
 import { SshService } from "./modules/ssh/sshService.js";
 import { SshHelperService } from "./modules/ssh/sshHelperService.js";
+import { SshTakeoverService } from "./modules/ssh/sshTakeoverService.js";
+import { SshTakeoverVerifier } from "./modules/ssh/sshTakeoverVerifier.js";
 import { routeSshHelperRequest } from "./http/sshHelperRouter.js";
 
 export type AppOptions = {
@@ -87,6 +89,7 @@ function createFileUploadService(database: Database.Database, repoRoot: string, 
   return new FileUploadService(new FileUploadRepository(database), uploadRoot, config.uploadMaxBytes, config.uploadChunkMaxBytes);
 }
 
+const sshServices = new WeakMap<Database.Database, { ssh: SshService; sshHelpers: SshHelperService; sshTakeovers: SshTakeoverService }>();
 export function createControllerServices(
   platform: PlatformAdapter,
   repoRoot: string,
@@ -110,6 +113,12 @@ export function createControllerServices(
     ? new SqliteDatabaseRepository(database, parseMasterKey(config.masterKey))
     : undefined;
   const nodes = new NodeService(repository);
+  let managedSsh = database ? sshServices.get(database) : undefined;
+  if (!managedSsh && database && audit) {
+    const ssh = new SshService(database, audit), verifier = new SshTakeoverVerifier(ssh);
+    const sshTakeovers = new SshTakeoverService(database, audit, ssh, (plan, key) => verifier.verify(plan, key));
+    sshTakeovers.recover(); managedSsh = { ssh, sshHelpers: new SshHelperService(database, audit), sshTakeovers }; sshServices.set(database, managedSsh);
+  }
   const databasePath = isAbsolute(config.databasePath) ? config.databasePath : resolve(repoRoot, config.databasePath);
   const scheduleExecutions = new FileScheduleExecutionRepository(
     join(dirname(databasePath), "schedule-executions"),
@@ -118,8 +127,7 @@ export function createControllerServices(
     repoRoot,
   );
   return {
-    ...(database && audit ? { ssh: new SshService(database, audit) } : {}),
-    ...(database && audit ? { sshHelpers: new SshHelperService(database, audit) } : {}),
+    ...managedSsh,
     overview,
     hosts: new HostMonitoringService(platform, repository, 45_000, config.production),
     databaseSlowQueries: new DatabaseSlowQueryService(new PostgresSlowQueryCollector()),

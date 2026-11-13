@@ -12,7 +12,7 @@ export type SshPreflight = { collectedAt: string; digest: string; files: Configu
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const properties = (text: string) => Object.fromEntries(text.trim().split("\n").map(line => { const equal = line.indexOf("="); if (equal < 0) throw new Error("Invalid systemd metadata"); return [line.slice(0, equal), line.slice(equal + 1)]; }));
 
-export function parseListeners(text: string): SshListener[] {
+export function parseListeners(text: string, family?: 4 | 6): SshListener[] {
   const result: SshListener[] = [];
   for (const line of text.trim().split("\n").filter(Boolean)) {
     const fields = line.trim().split(/\s+/), endpoint = fields[3];
@@ -20,6 +20,7 @@ export function parseListeners(text: string): SshListener[] {
     const match = /^(\[[^\]]+\]|[^\s]+):(\d+)$/.exec(endpoint);
     if (!match) throw new Error("Unrecognized listening address");
     let address = match[1]!.replace(/^\[|\]$/g, ""); const port = Number(match[2]);
+    if (address === "*" && family) address = family === 4 ? "0.0.0.0" : "::";
     if (/^\d+\.\d+\.\d+\.\d+%[a-zA-Z0-9_.-]+$/.test(address)) address = address.split("%")[0]!;
     if (address !== "*" && !isIP(address) || port < 1 || port > 65535) throw new Error("Unsupported listening address");
     const pids = [...new Set([...line.matchAll(/pid=(\d+)/g)].map(value => Number(value[1])))];
@@ -108,7 +109,9 @@ export class SshPreflightInspector {
       if (binary === expected) native.add(Number(name));
       else if (/(?:^|\/)(?:sshd|sshd-session|dropbear|tinysshd|teleport)(?: \(deleted\))?$/.test(binary)) throw new Error("Unmanaged or unrecognized SSH server process");
     }
-    const all = parseListeners(await this.run("/usr/bin/ss", ["-ltnpH"])); const listeners: SshListener[] = [];
+    // ss renders an IPv6 wildcard as '*'. Collect families separately so the
+    // replacement configuration preserves the original bind address exactly.
+    const all = [...parseListeners(await this.run("/usr/bin/ss", ["-4ltnpH"]), 4), ...parseListeners(await this.run("/usr/bin/ss", ["-6ltnpH"]), 6)]; const listeners: SshListener[] = [];
     for (let index = 0; index < all.length; index += 16) {
       const batch = all.slice(index, index + 16), banners = await Promise.all(batch.map(sshBanner));
       for (const [offset, entrance] of batch.entries()) {
@@ -127,7 +130,7 @@ export class SshPreflightInspector {
     }
     const receipts = [...files.values()].sort((a, b) => a.path.localeCompare(b.path));
     if ((await this.processes.sshd(listener.pid)).start !== listener.start) throw new Error("SSH listener changed during preflight");
-    const authentication = Object.fromEntries(Object.entries(effective).filter(([key]) => /^(?:authenticationmethods|passwordauthentication|pubkeyauthentication|kbdinteractiveauthentication|usepam|hostbasedauthentication|gssapiauthentication|kerberosauthentication|permitrootlogin|authorizedkeysfile|authorizedkeyscommand|authorizedprincipalsfile|authorizedprincipalscommand|trustedusercakeys|allowusers|denyusers|allowgroups|denygroups)$/.test(key)).map(([key, values]) => [key, key.endsWith("command") ? values.map(value => value === "none" ? "none" : "configured") : values]));
+    const authentication = Object.fromEntries(Object.entries(effective).filter(([key]) => /^(?:authenticationmethods|passwordauthentication|pubkeyauthentication|kbdinteractiveauthentication|usepam|hostbasedauthentication|gssapiauthentication|kerberosauthentication|permitrootlogin|authorizedkeysfile|authorizedkeyscommand|authorizedprincipalsfile|authorizedprincipalscommand|trustedusercakeys|allowusers|denyusers|allowgroups|denygroups|disableforwarding|allowtcpforwarding|allowstreamlocalforwarding|allowagentforwarding|x11forwarding|permittunnel|permituserenvironment|permituserrc|subsystem)$/.test(key)).map(([key, values]) => [key, key.endsWith("command") ? values.map(value => value === "none" ? "none" : "configured") : values]));
     const digest = hash(JSON.stringify({ files: receipts, listeners: listeners.map(({ address, port }) => ({ address, port })).sort((a, b) => `${a.address}:${a.port}`.localeCompare(`${b.address}:${b.port}`)), fingerprints: [...fingerprints].sort(), socketActive: socket.ActiveState === "active" }));
     return { collectedAt: new Date().toISOString(), digest, files: receipts, listeners, fingerprints, hostKeys, authentication, matches, listener, connections, socketActive: socket.ActiveState === "active" };
   }

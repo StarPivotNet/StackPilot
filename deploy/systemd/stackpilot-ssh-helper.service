@@ -22,6 +22,9 @@ RuntimeDirectoryMode=0700
 ReadWritePaths=/etc
 UMask=0077
 NoNewPrivileges=yes
+# Preserve the UID switching needed by sudo's root-side policy inspection
+# when systemd prepares this explicitly root-owned sandbox on Ubuntu 24.04.
+AmbientCapabilities=CAP_SETUID
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes

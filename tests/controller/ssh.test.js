@@ -170,7 +170,7 @@ test("failed policy application stays unavailable and exposes one persistent fai
   const current = service.list(principal).policies[0]; assert.equal(current.appliedRevision, 0); assert.equal(current.applyError, "POLICY_NOT_APPLIED"); assert.equal(current.lastAppliedAt, null);
   assert.equal(db.prepare("SELECT count(*) AS n FROM audit_events WHERE action='ssh.policy.apply-failed' AND outcome='failure'").get().n, 1);
 }));
-test("HTTP enforces session/CSRF/reauth and keeps takeover unavailable", async () => fixture(async ({ db, identity }) => {
+test("HTTP enforces session/CSRF/reauth and validates takeover input", async () => fixture(async ({ db, identity }) => {
   const origin = "http://127.0.0.1:5173";
   const server = createStackPilotServer({ env: { STACKPILOT_COOKIE_SECURE: "0", STACKPILOT_ALLOWED_ORIGINS: origin }, database: db, identity, platform: new FakePlatformAdapter() });
   server.listen(0, "127.0.0.1"); await once(server, "listening");
@@ -182,7 +182,7 @@ test("HTTP enforces session/CSRF/reauth and keeps takeover unavailable", async (
     const headers = { Cookie: cookie, Origin: origin, "Content-Type": "application/json", "X-CSRF-Token": session.csrfToken };
     const workspace = await fetch(`${base}/api/ssh/workspace`, { headers });
     assert.equal(workspace.status, 200); assert.equal(workspace.headers.get("cache-control"), "no-store");
-    assert.equal((await fetch(`${base}/api/ssh/takeover-plans`, { method: "POST", headers, body: "{}" })).status, 503);
+    assert.equal((await fetch(`${base}/api/ssh/takeover-plans`, { method: "POST", headers, body: "{}" })).status, 400);
     assert.equal((await fetch(`${base}/api/ssh/policies`, { method: "POST", headers, body: JSON.stringify({ nodeId: randomUUID(), userId: session.user.id, profile: "shell", enabled: true }) })).status, 403);
   } finally { server.close(); await once(server, "close"); }
 }));

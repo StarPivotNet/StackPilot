@@ -1,4 +1,4 @@
-import { SshHelperEnrollmentInputSchema, SshIssueRequestSchema, SshPolicyInputSchema, SshWorkspaceSchema } from "@stackpilot/contracts";
+import { SshHelperEnrollmentInputSchema, SshIssueRequestSchema, SshPolicyInputSchema, SshWorkspaceSchema, SshTakeoverInputSchema } from "@stackpilot/contracts";
 import type { RequestContext } from "./types.js";
 import { sendJson } from "./response/json.js";
 import { parseSchema } from "./validation.js";
@@ -47,9 +47,18 @@ export function routeSshRequest(context: RequestContext) {
     identity.require(principal, "ssh:sessions:terminate"); reauth();
     sendJson(response, 202, services.ssh.terminate(principal, parts[3]!)); return;
   }
-  if (method === "POST" && parts[2] === "takeover-plans") {
-    identity.require(principal, "ssh:manage");
-    throw new ServiceError(503, "NOT_READY", "原生 PAM、主机会话执行器和独立 SSH 验证尚未完成，禁止切换 SSH 认证");
+  if (parts[2] === "takeover-plans" && services.sshTakeovers) {
+    if (method === "GET") {
+      identity.require(principal, "ssh:read"); const plans = services.sshTakeovers.list(principal);
+      if (parts.length === 3) sendJson(response, 200, { plans, collectedAt: services.ssh.list(principal).collectedAt });
+      else { const plan = plans.find(value => value.id === parts[3]); if (!plan) throw new ServiceError(404, "NOT_FOUND", "接管计划不存在"); sendJson(response, 200, plan); } return;
+    }
+    if (method === "POST" && parts.length === 3) {
+      const input = parseSchema(SshTakeoverInputSchema, context.body, "SSH 接管计划"); identity.require(principal, "ssh:manage", input.nodeId); reauth(); sendJson(response, 201, services.sshTakeovers.create(principal, input)); return;
+    }
+    if (method === "POST" && parts.length === 5 && ["apply", "rollback"].includes(parts[4] ?? "")) {
+      const plan = services.sshTakeovers.get(parts[3]!); identity.require(principal, "ssh:manage", plan.nodeId); reauth(); sendJson(response, 202, parts[4] === "apply" ? services.sshTakeovers.apply(principal, plan.id) : services.sshTakeovers.rollback(principal, plan.id)); return;
+    }
   }
   throw new ServiceError(404, "NOT_FOUND", "SSH 接口不存在");
 }

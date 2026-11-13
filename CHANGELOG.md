@@ -2,6 +2,21 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.47 - 2026-11-13
+
+### Added
+
+- Connect scoped, reauthenticated takeover APIs to signed helper commands and durable node-locked plans, with independent fresh SSH connections and pinned host keys before commit.
+- Verify PAM login, actual UID/sudo profile, SFTP, disabled forwarding, rejected invalid credentials and a real local transport deadline; require every check before marking a host managed.
+- Add protected temporary probe public keys, retryable step receipts and configuration drift detection that pauses credential issuance.
+- Complete basic end-to-end takeovers on disposable Debian 12 and Ubuntu 24.04 VMs, including single-use concurrent login and host-confirmed credential revocation. Installer, UI and the full fault/profile acceptance matrix remain pending.
+
+### Fixed
+
+- Preserve IPv6 wildcard listening entrances when ss renders them as '*'; retain the root helper's sudo inspection capability in the Ubuntu systemd sandbox.
+- Recognize unprivileged sudo listing denial without weakening the helper's independent effective-grant checks; retain completed verification checks on failure.
+- Upgrade Zod to 4.6.7 and use pinned ssh2 1.17.0 for independent verification.
+
 ## 0.3.0-preview.46 - 2026-11-13
 
 ### Added

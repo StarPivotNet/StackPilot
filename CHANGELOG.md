@@ -2,6 +2,13 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.51 - 2026-11-13
+
+### Fixed
+
+- Refresh pinned Node, Distroless Node and Nginx Alpine base images to current immutable digests so container OS security updates are included in production image scans.
+- Preserve high/critical dependency audit success while retaining the moderate development-tool findings for follow-up.
+
 ## 0.3.0-preview.50 - 2026-11-13
 
 ### Fixed

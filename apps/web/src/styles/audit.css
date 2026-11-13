@@ -1,7 +1,7 @@
 .audit-cell-value { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .audit-load-more { display:flex; justify-content:center; padding-top:16px; }
 .audit-export-freshness { display:flex; align-items:center; gap:12px; color:var(--muted); font-size:12px; }
-.audit-detail-drawer { width:min(560px,100vw); inset:1px 0 1px auto; height:calc(100dvh - 2px); max-height:calc(100dvh - 2px); box-sizing:border-box; overflow:auto; border:0; border-radius:0; box-shadow:var(--shadow-overlay); }
+.audit-detail-drawer { width:min(560px,100vw); inset:2px 0 2px auto; height:calc(100dvh - 4px); max-height:calc(100dvh - 4px); box-sizing:border-box; overflow:auto; border:0; border-radius:0; box-shadow:var(--shadow-overlay); }
 .audit-detail-drawer :is(.drawer-head,.drawer-actions) { padding:24px; border:0; }
 .audit-detail-drawer .drawer-body { padding:0 24px 24px; background:var(--surface); }
 .audit-detail-drawer .detail-kv { display:grid; gap:24px; }

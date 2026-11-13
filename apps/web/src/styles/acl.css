@@ -103,6 +103,7 @@
   border: 0; border-radius: 8px; background: var(--surface-soft); text-align: left; box-shadow: none;
 }
 .cloudpulse-security.module-page .permission-grid > button.checked { background: var(--primary-soft); }
+.cloudpulse-security.module-page :is(.acl-role-layout, .acl-policy-layout) .panel-card { border: 0; box-shadow: var(--shadow-medium); }
 .cloudpulse-security.module-page .permission-grid > button:disabled { opacity: 1; cursor: default; }
 .cloudpulse-security.module-page .permission-copy { min-width: 0; display: grid; gap: 8px; }
 .cloudpulse-security.module-page .permission-copy b { font: 500 14px/1.5 var(--font-body); }

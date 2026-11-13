@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.59 - 2026-11-13
+
+### Fixed
+
+- Apply ACL borderless/elevation overrides after the shared panel stylesheet and provide a four-pixel safety inset for audit details under fractional browser viewport metrics.
+
 ## 0.3.0-preview.58 - 2026-11-13
 
 ### Fixed

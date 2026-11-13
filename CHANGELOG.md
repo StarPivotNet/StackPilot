@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.60 - 2026-11-13
+
+### Fixed
+
+- Update the ACL browser acceptance count for the four SSH permissions now present in the live Controller permission catalog.
+
 ## 0.3.0-preview.59 - 2026-11-13
 
 ### Fixed

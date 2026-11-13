@@ -70,7 +70,7 @@ test("role layout keeps built-in permissions concise and responsive", async ({ p
 
   await page.getByRole("button", { name: /管理员/ }).click();
   const administratorPermissions = page.locator(".permission-grid > button");
-  await expect(administratorPermissions).toHaveCount(38);
+  await expect(administratorPermissions).toHaveCount(42);
   await expect(administratorPermissions.first()).toBeDisabled();
 
   await page.getByRole("button", { name: /只读审计员/ }).click();

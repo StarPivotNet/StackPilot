@@ -2,6 +2,12 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.54 - 2026-11-13
+
+### Fixed
+
+- Normalize shell-script execute bits in the CI checkout before deployment contract tests, matching the repository's executable-file contract on hosted runners.
+
 ## 0.3.0-preview.53 - 2026-11-13
 
 ### Fixed

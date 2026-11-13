@@ -102,6 +102,7 @@ jobs:
         run: npm test
       - name: Run deployment and migration tests
         run: |
+          chmod +x deploy/scripts/*.sh
           npm run test:deploy
           npm run release:drill
       - name: Build all production workspaces

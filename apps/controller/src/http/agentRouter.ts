@@ -1,6 +1,7 @@
 import {
   AGENT_FEATURE_DATABASE_INVENTORY, AGENT_FEATURE_FIREWALL_DENY_SNAPSHOT, AGENT_FEATURE_PHYSICAL_HOST_IDENTITY, AGENT_FEATURE_SYSTEMD_SNAPSHOT, AgentEnrollmentRequestSchema, AgentEnrollmentResponseSchema, AgentHeartbeatResponseSchema, AgentHeartbeatSchema,
   RemoteTaskPollResponseSchema, RemoteTaskRecordSchema, RemoteTaskStatusUpdateSchema, RotateCredentialRequestSchema, RotateCredentialResponseSchema,
+  MeshPeerDirectoryResponseSchema,
 } from "@stackpilot/contracts";
 import type { RequestContext } from "./types.js";
 import { notFound } from "./errors/ApiError.js";
@@ -22,9 +23,14 @@ export async function routeAgentRequest(context: RequestContext) {
   }
   const identity = context.agentIdentity;
   if (!identity) throw notFound("Agent 身份不可用");
+  if (context.url.pathname === "/api/agent/mesh/peers" && method === "GET") {
+    sendJson(context.response, 200, await context.services.egress.peerDirectory(identity.nodeId), MeshPeerDirectoryResponseSchema);
+    return;
+  }
   if (context.url.pathname === "/api/agent/heartbeat" && method === "POST") {
     const input = parseSchema(AgentHeartbeatSchema, context.body, "心跳");
     const result = await context.services.nodes.heartbeat(identity.nodeId, input, context.requestId);
+    await context.services.mesh.reconcileNode(identity.nodeId, context.requestId);
     if (input.databaseSnapshot && input.capabilities.includes("databases.inventory.read") && !input.capabilities.includes("database.inventory.read")) {
       context.services.databaseInventory?.ingestSnapshot(identity.nodeId, input.databaseSnapshot);
     }

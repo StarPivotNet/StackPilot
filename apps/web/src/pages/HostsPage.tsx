@@ -101,7 +101,7 @@ function HostsPage({ page, notify }: { page: PageKey; notify: Notify }) {
     { key: "update", label: "更新", width: "128px", render: (row) => <span className={isCleanUpdate(row.update) ? "green-text" : "host-neutral-text"}>{row.update}</span> },
     { key: "collected", label: "采集时间", width: "132px", render: (row) => formatTimestamp(row.collectedAt) },
     { key: "status", label: "健康", width: "92px", render: (row) => <HostStatus row={row} /> },
-    { key: "ops", label: "操作", width: "64px", render: detailAction },
+    { key: "ops", label: "操作", width: "64px", control: true, render: detailAction },
   ] : preset.mode === "alerts" ? [
     { key: "issue", label: "告警对象", width: "240px", render: (row) => <div className="host-issue-cell"><HostName row={row} /><HostRiskTags row={row} /></div> },
     { key: "env", label: "环境 / IP", width: "160px", render: (row) => <span className="host-env-ip"><em>{row.env}</em><code>{row.ip}</code></span> },
@@ -109,7 +109,7 @@ function HostsPage({ page, notify }: { page: PageKey; notify: Notify }) {
     { key: "backup", label: "备份", width: "132px", render: (row) => row.backup },
     { key: "collected", label: "遥测时间", width: "132px", render: (row) => formatTimestamp(row.collectedAt) },
     { key: "status", label: "状态", width: "92px", render: (row) => <HostStatus row={row} /> },
-    { key: "ops", label: "操作", width: "64px", render: detailAction },
+    { key: "ops", label: "操作", width: "64px", control: true, render: detailAction },
   ] : [
     { key: "name", label: "主机名", width: "184px", render: (row) => <HostName row={row} /> },
     { key: "ip", label: "IP 地址", width: "128px", render: (row) => row.ip },
@@ -119,7 +119,7 @@ function HostsPage({ page, notify }: { page: PageKey; notify: Notify }) {
     { key: "memory", label: "内存", width: "112px", sortValue: (row) => row.memory ?? -1, render: (row) => <MetricBar label="内存" value={row.memory} /> },
     { key: "disk", label: "磁盘", width: "112px", sortValue: (row) => row.disk ?? -1, render: (row) => <DiskMetric row={row} /> },
     { key: "status", label: "健康", width: "92px", render: (row) => <HostStatus row={row} /> },
-    { key: "ops", label: "操作", width: "64px", render: detailAction },
+    { key: "ops", label: "操作", width: "64px", control: true, render: detailAction },
   ];
 
   return <ModulePageShell title={resolvePageMeta(page).title} subtitle={loading ? "正在采集主机、服务与资源状态" : preset.subtitle} page={page} className="resource-cloudpulse" viewContext={false} tabs={<ResourceNavigation module="hosts" page={page} />} filters={<><ModuleSearch value={search} placeholder="搜索主机名、IP、服务或版本" onChange={(value) => setSearchByPage((current) => ({ ...current, [page]: value }))} /><FieldSelect label="环境" value={envFilter} options={preset.mode === "production" ? [preset.env] : ["全部", ...envOptions]} onChange={(value) => setEnvByPage((current) => ({ ...current, [page]: value }))} /><FieldSelect label="健康" value={healthFilter} options={hostHealthOptions(preset.mode)} onChange={(value) => setHealthByPage((current) => ({ ...current, [page]: value }))} /></>} metrics={<HostMetrics mode={preset.mode} rows={rows} filteredRows={filteredRows} available={available} />}>

@@ -45,6 +45,7 @@ if (isMainModule) {
     const services = createControllerServices(platform, repoRoot, config, agentRepository, database, siteRepository, identity.audit);
     await services.sites.startup();
     await services.certificateRenewals.startup();
+    services.egress.start();
     const appOptions={ config, services, platform, repoRoot,database,identity,agentRepository };
     const server = createStackPilotServer(appOptions);
     const agentServer = config.agentTlsCertPath && config.agentTlsKeyPath
@@ -65,6 +66,7 @@ if (isMainModule) {
         services.sites.shutdown();
         services.databaseRetention?.shutdown();
         services.auditExports?.shutdown();
+        services.egress.shutdown();
         const reconciliationStopped = services.siteManagement.stopBackgroundReconciliation();
         let remaining=agentServer?2:1;const closed=()=>{remaining-=1;if(remaining===0){void reconciliationStopped.finally(()=>{database.close();process.exit(0);});}};
         agentServer?.close(closed);

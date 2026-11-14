@@ -1,0 +1,2 @@
+d /var/lib/stackpilot-mesh 0700 root root -
+d /run/stackpilot-mesh 0750 root stackpilot-mesh -

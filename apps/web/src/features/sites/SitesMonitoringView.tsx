@@ -97,7 +97,7 @@ function siteStatus(row: SiteRuntimeView) {
 }
 
 function siteColumns(mode: SiteMode, onOpen: (id: string) => void): Array<TableColumn<SiteRuntimeView>> {
-  const openColumn: TableColumn<SiteRuntimeView> = { key: "ops", label: "操作", width: "64px", render: (row) => <span className="table-icon-actions"><button type="button" title="查看操作" aria-label={`查看 ${row.domain} 站点操作`} onClick={() => onOpen(row.id)}><Eye size={16} /></button></span> };
+  const openColumn: TableColumn<SiteRuntimeView> = { key: "ops", label: "操作", width: "64px", control: true, render: (row) => <span className="table-icon-actions"><button type="button" title="查看操作" aria-label={`查看 ${row.domain} 站点操作`} onClick={() => onOpen(row.id)}><Eye size={16} /></button></span> };
   if (mode === "running") return [
     { key: "domain", label: "域名", width: "208px", render: (row) => <SiteIdentity row={row} /> },
     { key: "status", label: "状态", width: "96px", render: siteStatus },
@@ -129,7 +129,7 @@ function runtimeColumns(onOpen: (runtime: string) => void): Array<TableColumn<Si
     { key: "hosts", label: "主机", width: "160px", render: (group) => <span className="runtime-hosts" title={group.hosts}>{group.hosts || "暂不可用"}</span> },
     { key: "traffic", label: "总流量", width: "112px", render: (group) => group.traffic },
     { key: "latency", label: "均延迟", width: "104px", render: (group) => group.avgLatency },
-    { key: "ops", label: "详情", width: "64px", render: (group) => <span className="table-icon-actions"><button type="button" title="查看详情" aria-label={`查看 ${group.runtime} 服务详情`} onClick={() => onOpen(group.runtime)}><Eye size={16} /></button></span> },
+    { key: "ops", label: "详情", width: "64px", control: true, render: (group) => <span className="table-icon-actions"><button type="button" title="查看详情" aria-label={`查看 ${group.runtime} 服务详情`} onClick={() => onOpen(group.runtime)}><Eye size={16} /></button></span> },
   ];
 }
 

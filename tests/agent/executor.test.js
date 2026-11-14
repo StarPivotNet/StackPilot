@@ -18,7 +18,7 @@ test("service status tasks reject systemctl option injection", () => {
 });
 
 test("task registry exposes only structured handlers and keeps side effects non-retryable", () => {
-  assert.deepEqual(Object.keys(taskRegistry).sort(), ["service.status.read", "sites.certificates.renew", "sites.lifecycle.update", "sites.logs.read", "sites.plan.activate", "sites.plan.prepare", "sites.rollback", "system.summary.read", "terminal.command.execute"]);
+  assert.deepEqual(Object.keys(taskRegistry).sort(), ["network.cache.fetch", "network.egress.probe", "network.mesh.configure", "network.mesh.status.read", "service.status.read", "sites.certificates.renew", "sites.lifecycle.update", "sites.logs.read", "sites.plan.activate", "sites.plan.prepare", "sites.rollback", "system.summary.read", "terminal.command.execute"]);
   assert.ok(Object.values(taskRegistry).every((definition) => definition.maxOutputBytes <= 16_384));
   assert.ok(Object.keys(taskRegistry).every((name) => !/shell/i.test(name)));
   assert.equal(taskRegistry["system.summary.read"].timeoutMs, 6_000);
@@ -28,6 +28,7 @@ test("task registry exposes only structured handlers and keeps side effects non-
   assert.equal(taskRegistry["sites.rollback"].capability, "sites.deploy"); assert.equal(taskRegistry["sites.rollback"].retryable, false); assert.equal(taskRegistry["sites.rollback"].cancellable, false);
   assert.equal(taskRegistry["sites.lifecycle.update"].capability, "sites.lifecycle.manage"); assert.equal(taskRegistry["sites.lifecycle.update"].retryable, false);
   assert.equal(taskRegistry["sites.logs.read"].capability, "sites.logs.read"); assert.equal(taskRegistry["sites.logs.read"].retryable, false);
+  assert.equal(taskRegistry["network.egress.probe"].capability, "network.transfer"); assert.equal(taskRegistry["network.egress.probe"].retryable, false); assert.equal(taskRegistry["network.egress.probe"].cancellable, true); assert.deepEqual(taskRegistry["network.egress.probe"].platforms, ["linux"]);
 });
 
 test("site mutations require a Linux helper and terminal commands require fixed executables", () => {
@@ -240,4 +241,29 @@ test("non-cancellable renewal timeout is reported as an unknown result", async (
     assert.equal(result.status, "failed");
     assert.equal(result.errorCode, "RESULT_UNKNOWN");
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("a running transfer publishes at most one progress sample per interval", async () => {
+  const root = await mkdtemp(join(tmpdir(), "stackpilot-executor-"));
+  try {
+    const definition = {
+      capability: "network.transfer", platforms: ["linux"], timeoutMs: 5_000, maxOutputBytes: 16_384, cancellable: true, retryable: false,
+      validate: (value) => value,
+      run: async (_parameters, _signal, _nodeId, _capabilities, context) => {
+        for (let step = 1; step <= 3; step += 1) context.reportProgress({ bytesReceived: step * 1024, totalBytes: 4096, partsDone: 0, partsTotal: 0 });
+        return { message: "ok", truncated: false };
+      },
+    };
+    const executor = new TaskExecutor(join(root, "receipts.json"), nodeId, "linux", ["network.transfer"], { "network.cache.fetch": definition });
+    const updates = [];
+    const result = await executor.execute(
+      task({ type: "network.cache.fetch", parameters: {}, requiredCapability: "network.transfer" }),
+      async (update) => { updates.push(update); },
+    );
+    assert.equal(result.status, "succeeded");
+    // One running acknowledgement, then a single sample: the other two land inside the interval.
+    assert.deepEqual(updates.map((update) => update.status), ["running", "running"]);
+    assert.equal(updates[0].progress, undefined);
+    assert.deepEqual(updates[1].progress, { bytesReceived: 1024, totalBytes: 4096, partsDone: 0, partsTotal: 0 });
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

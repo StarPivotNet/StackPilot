@@ -1,11 +1,14 @@
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { isAgentProtocolCompatible, RemoteTaskEnvelopeSchema, type AgentCapability, type AgentPlatform, type RemoteTaskStatusUpdate } from "@stackpilot/contracts";
+import { isAgentProtocolCompatible, RemoteTaskEnvelopeSchema, type AgentCapability, type AgentPlatform, type RemoteTaskProgressSample, type RemoteTaskStatusUpdate } from "@stackpilot/contracts";
 import { taskRegistry } from "./registry.js";
 import { z } from "zod";
 
 const ReceiptSchema = z.object({ taskId: z.string().uuid(), taskType: z.string().optional(), idempotencyKey: z.string(), attempt: z.number().int().min(1).max(3), status: z.enum(["running", "succeeded", "failed", "cancelled"]), updatedAt: z.string().datetime(), reported: z.boolean(), update: z.object({ taskId: z.string().uuid(), attempt: z.number().int().min(1).max(3), status: z.enum(["running", "succeeded", "failed", "cancelled"]), timestamp: z.string().datetime(), result: z.object({ message: z.string(), data: z.record(z.string(), z.unknown()).optional(), truncated: z.boolean() }).optional(), errorCode: z.string().optional() }).strict() }).strict();
 type Receipt = z.infer<typeof ReceiptSchema>;
+
+/** Two samples inside one panel poll would only add requests, so the Agent reports once per interval. */
+const PROGRESS_REPORT_INTERVAL_MS = 5_000;
 
 export class TaskExecutor {
   private receipts = new Map<string, Receipt>();
@@ -70,8 +73,16 @@ export class TaskExecutor {
         catch { /* The terminal receipt is authoritative when the running acknowledgement is lost. */ }
       }
       const timer = setTimeout(() => controller.abort(), definition.timeoutMs);
+      let lastProgressAt = 0;
+      const reportProgress = (progress: RemoteTaskProgressSample) => {
+        if (!onRunning) return;
+        const at = Date.now();
+        if (at - lastProgressAt < PROGRESS_REPORT_INTERVAL_MS) return;
+        lastProgressAt = at;
+        void onRunning({ taskId: task.taskId, attempt: task.attempt, status: "running", timestamp: new Date(at).toISOString(), progress }).catch(() => undefined);
+      };
       let update: RemoteTaskStatusUpdate;
-      try { const result = await definition.run(parameters, controller.signal, this.nodeId, this.capabilities); controller.signal.throwIfAborted(); update = { taskId: task.taskId, attempt: task.attempt, status: "succeeded", timestamp: new Date().toISOString(), result }; }
+      try { const result = await definition.run(parameters, controller.signal, this.nodeId, this.capabilities, { reportProgress }); controller.signal.throwIfAborted(); update = { taskId: task.taskId, attempt: task.attempt, status: "succeeded", timestamp: new Date().toISOString(), result }; }
       catch (error) { const aborted = controller.signal.aborted; const unknown = aborted && !definition.cancellable; const code = error && typeof error === "object" && "code" in error && typeof error.code === "string" && /^[A-Z0-9_]{1,80}$/.test(error.code) ? error.code : error instanceof Error && /^[A-Z0-9_]{1,80}$/.test(error.name) ? error.name : "TASK_FAILED"; update = { taskId: task.taskId, attempt: task.attempt, status: aborted && definition.cancellable ? "cancelled" : "failed", timestamp: new Date().toISOString(), errorCode: unknown ? "RESULT_UNKNOWN" : aborted ? "TASK_CANCELLED_OR_TIMEOUT" : code, result: { message: unknown ? "Task result is unknown after timeout; it will not be replayed" : aborted ? "Task cancelled or timed out" : "Task failed", truncated: false } }; }
       finally { clearTimeout(timer); }
       this.receipts.set(task.taskId, { taskId: task.taskId, taskType: task.type, idempotencyKey: task.idempotencyKey, attempt: task.attempt, status: update.status, updatedAt: update.timestamp, reported: false, update }); await this.persist(); return update;

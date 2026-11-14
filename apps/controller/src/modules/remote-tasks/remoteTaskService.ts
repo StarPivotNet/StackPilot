@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import {
-  AGENT_PROTOCOL_VERSION, AGENT_TASK_CONCURRENCY, RemoteTaskEnvelopeSchema, RemoteTaskRecordSchema,
-  type AgentCapability, type CreateRemoteTaskRequest, type NodeScope, type Permission, type RemoteTaskRecord, type RemoteTaskStatus, type RemoteTaskStatusUpdate,
+  AGENT_PROTOCOL_VERSION, AGENT_TASK_CONCURRENCY, RemoteTaskEnvelopeSchema, RemoteTaskProgressSchema, RemoteTaskRecordSchema,
+  type AgentCapability, type CreateRemoteTaskRequest, type NodeScope, type Permission, type RemoteTaskPartProgressSample, type RemoteTaskProgress, type RemoteTaskProgressSample, type RemoteTaskRecord, type RemoteTaskStatus, type RemoteTaskStatusUpdate,
 } from "@stackpilot/contracts";
 import type { AgentControlRepository, AuditEvent } from "../../repositories/agentControlRepository.js";
 import { ServiceError } from "../serviceError.js";
 
 const terminal: readonly RemoteTaskStatus[] = ["succeeded", "failed", "cancelled", "expired"];
+export { terminal as terminalTaskStatuses };
 const irreversibleTypes: ReadonlySet<CreateRemoteTaskRequest["type"]> = new Set(["sites.certificates.renew", "sites.rollback"]);
 const transitions: Record<RemoteTaskStatus, readonly RemoteTaskStatus[]> = {
   queued: ["dispatched", "cancelled", "expired"], dispatched: ["running", "queued", "succeeded", "failed", "cancelled", "expired"],
@@ -23,8 +24,12 @@ const requiredCapability: Record<CreateRemoteTaskRequest["type"], AgentCapabilit
   "sites.logs.read": "sites.logs.read",
   "terminal.command.execute": "terminal.command.execute",
   "sites.certificates.renew": "sites.certificates.renew",
+  "network.mesh.status.read": "network.mesh.read",
+  "network.mesh.configure": "network.mesh.configure",
+  "network.cache.fetch": "network.transfer",
+  "network.egress.probe": "network.transfer",
 };
-const singleAttemptTypes: ReadonlySet<CreateRemoteTaskRequest["type"]> = new Set(["terminal.command.execute", "sites.plan.prepare", "sites.plan.activate", "sites.rollback", "sites.lifecycle.update", "sites.logs.read", "sites.certificates.renew"]);
+const singleAttemptTypes: ReadonlySet<CreateRemoteTaskRequest["type"]> = new Set(["terminal.command.execute", "sites.plan.prepare", "sites.plan.activate", "sites.rollback", "sites.lifecycle.update", "sites.logs.read", "sites.certificates.renew", "network.mesh.configure", "network.cache.fetch", "network.egress.probe"]);
 const audit = (event: Omit<AuditEvent, "eventId" | "timestamp">): AuditEvent => ({ eventId: randomUUID(), timestamp: new Date().toISOString(), ...event });
 const sensitiveResultKey = /authorization|cookie|token|secret|password|private|environment|stdout|stderr/i;
 function containsSensitiveKey(value: unknown): boolean {
@@ -69,8 +74,70 @@ export function transitionTask(task: RemoteTaskRecord, next: RemoteTaskStatus, n
   task.status = next; task.updatedAt = now;
 }
 
+/**
+ * Progress samples ride the running status update. A sample is only counters: the rate is derived
+ * here from the previous one, smoothed, so a burst or a stall does not swing the panel by 10x.
+ * Out-of-order or shrinking samples are dropped instead of rewinding the bar.
+ */
+function applyProgress(task: RemoteTaskRecord, sample: RemoteTaskProgressSample, eventTime: number) {
+  const previous = task.progress ?? null;
+  const previousAt = previous ? Date.parse(previous.updatedAt) : 0;
+  // A smaller total means a rewind. `network.cache.fetch` is a single-attempt type, so attempt 2 can
+  // never reuse this task id; if that ever changes, this guard has to reset instead of dropping.
+  if (previous && (eventTime <= previousAt || sample.bytesReceived < previous.bytesReceived)) return;
+  const seconds = previous ? (eventTime - previousAt) / 1000 : 0;
+  const instant = previous && seconds >= 0.2 ? (sample.bytesReceived - previous.bytesReceived) / seconds : null;
+  const smoothed = instant === null ? previous?.bytesPerSecond ?? null
+    : previous?.bytesPerSecond == null ? instant : previous.bytesPerSecond * 0.5 + instant * 0.5;
+  task.progress = RemoteTaskProgressSchema.parse({
+    bytesReceived: sample.bytesReceived, totalBytes: sample.totalBytes, partsDone: sample.partsDone, partsTotal: sample.partsTotal,
+    bytesPerSecond: smoothed === null ? null : rateOf(smoothed),
+    ...(sample.parts ? { parts: sample.parts.map((part) => ({ ...part, bytesPerSecond: partRate(previous, part, seconds) })) } : {}),
+    updatedAt: new Date(eventTime).toISOString(),
+  });
+  task.updatedAt = new Date(eventTime).toISOString();
+}
+
+/** A positive rate must not round down to `0`, which reads as stalled; an exact zero stays zero. */
+function rateOf(value: number) {
+  return Math.min(value > 0 ? Math.max(Math.round(value), 1) : 0, 1e12);
+}
+
+/**
+ * One part is measured exactly like the whole job: two of its own samples, same smoothing. A part that
+ * rewinds restarted its range, so its old rate no longer describes it and the rate starts over.
+ */
+function partRate(previous: RemoteTaskProgress | null, part: RemoteTaskPartProgressSample, seconds: number) {
+  const before = previous?.parts?.find((entry) => entry.index === part.index) ?? null;
+  if (!before || seconds < 0.2) return before?.bytesPerSecond ?? null;
+  if (part.bytes < before.bytes) return null;
+  const instant = (part.bytes - before.bytes) / seconds;
+  // A finished part has nothing left to move: keep the rate it finished at instead of decaying to zero.
+  if (instant === 0 && part.bytes >= part.totalBytes) return before.bytesPerSecond;
+  const smoothed = before.bytesPerSecond == null ? instant : before.bytesPerSecond * 0.5 + instant * 0.5;
+  return rateOf(smoothed);
+}
+
 export class RemoteTaskService {
+  private readonly listeners = new Set<(task: RemoteTaskRecord) => void>();
+
   constructor(private readonly repository: AgentControlRepository, private readonly queueLimit = 100) {}
+
+  /**
+   * A projection of task state (the download panel's rows) subscribes here instead of polling the
+   * repository. A listener that throws is dropped for that event only: bookkeeping never fails a task.
+   */
+  observe(listener: (task: RemoteTaskRecord) => void) {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+
+  private notify(tasks: readonly RemoteTaskRecord[]) {
+    if (this.listeners.size === 0) return;
+    for (const task of tasks) for (const listener of this.listeners) {
+      try { listener(task); } catch { /* a projection must never fail the task path */ }
+    }
+  }
 
   private reconcile(state: { tasks: RemoteTaskRecord[]; audits: AuditEvent[] }, traceId: string = randomUUID(), now = new Date().toISOString()) {
     for (const task of state.tasks) {
@@ -81,16 +148,35 @@ export class RemoteTaskService {
     }
   }
 
-  async createForUser(nodeId: string, input: CreateRemoteTaskRequest, requester: string, traceId: string,
-    access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }, authorize: () => void) {
+  private assertUserAccess(nodeId: string, access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }) {
     if (!access.permissions.has("tasks:create") || (access.nodeScope !== "all" && !access.nodeScope.includes(nodeId))) {
       throw new ServiceError(403, "FORBIDDEN", "任务权限不足或节点超出授权范围");
     }
+  }
+
+  async createForUser(nodeId: string, input: CreateRemoteTaskRequest, requester: string, traceId: string,
+    access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }, authorize: () => void) {
+    this.assertUserAccess(nodeId, access);
     // Site tasks must also pass plan, protection and operation-lock checks in the site service.
     if (input.type.startsWith("sites.")) throw new ServiceError(403, "FORBIDDEN", "站点任务只能通过对应的站点业务接口创建");
     if (input.type === "terminal.command.execute" && !access.permissions.has("terminal:execute")) {
       throw new ServiceError(403, "FORBIDDEN", "缺少终端执行权限");
     }
+    // An egress target or a segment source comes from the Controller's own tables; a caller may not name one.
+    const parameters = input.type === "network.cache.fetch" ? input.parameters as Record<string, unknown> : null;
+    if (parameters && ("egress" in parameters || "segments" in parameters)) {
+      throw new ServiceError(403, "FORBIDDEN", "出口节点与分片来源只能由 Controller 按出口质量表选择");
+    }
+    return this.create(nodeId, input, requester, traceId, authorize);
+  }
+
+  /**
+   * Controller-originated fill: the same caller checks as a user task, but the parameters carry the
+   * egress the Controller selected, so this path is never reachable from a request body.
+   */
+  async createWithEgress(nodeId: string, input: CreateRemoteTaskRequest, requester: string, traceId: string,
+    access: { permissions: ReadonlySet<Permission>; nodeScope: NodeScope }, authorize: () => void) {
+    this.assertUserAccess(nodeId, access);
     return this.create(nodeId, input, requester, traceId, authorize);
   }
 
@@ -125,6 +211,7 @@ export class RemoteTaskService {
       state.audits.push(audit({ requester, nodeId, taskId: created.taskId, event: "task.created", taskType: input.type, parameters: identifiers, fromStatus: null, toStatus: "queued", resultSummary: null, traceId }));
     }, { sections: ["nodes", "tasks"], nodeId });
     if (!created) throw new ServiceError(500, "INTERNAL_ERROR", "任务状态未保存");
+    this.notify([created as RemoteTaskRecord]);
     return created as RemoteTaskRecord;
   }
 
@@ -214,6 +301,7 @@ export class RemoteTaskService {
         return;
       }
       if (task.status === "queued" && task.attempt > 0 && input.status === "failed") { updated = task; return; }
+      if (input.progress && input.status === "running") applyProgress(task, input.progress, eventTime);
       if (task.status === input.status) { updated = task; return; }
       const previous = task.status; transitionTask(task, input.status, input.timestamp);
       task.result = input.result ?? null; task.errorCode = input.errorCode ?? null; task.nextAttemptAt = null;
@@ -232,6 +320,7 @@ export class RemoteTaskService {
       updated = task;
     }, { sections: ["tasks"], nodeId, taskId: input.taskId });
     if (!updated) throw new ServiceError(500, "INTERNAL_ERROR", "任务状态未保存");
+    this.notify([updated]);
     return updated;
   }
 
@@ -249,6 +338,7 @@ export class RemoteTaskService {
       updated = task;
     }, { sections: ["tasks"], taskId });
     if (!updated) throw new ServiceError(500, "INTERNAL_ERROR", "任务状态未保存");
+    this.notify([updated]);
     return updated;
   }
 }

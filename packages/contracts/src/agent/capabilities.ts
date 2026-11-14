@@ -10,8 +10,9 @@ export const AgentCapabilitySchema = z.enum([
   "sites.deploy", "sites.lifecycle.manage", "sites.certificates.renew", "runtime.install", "databases.inventory.read",
   "database.inventory.read", "database.sql.read",
   "database.backup", "database.operate", "database.install", "database.restore",
+  "network.mesh.read", "network.mesh.configure", "network.cache.read", "network.transfer",
 ]);
-export const AgentCapabilitiesSchema = z.array(AgentCapabilitySchema).max(16).transform((items) => [...new Set(items)]);
+export const AgentCapabilitiesSchema = z.array(AgentCapabilitySchema).max(20).transform((items) => [...new Set(items)]);
 
 export type AgentPlatform = z.infer<typeof AgentPlatformSchema>;
 export type AgentCapability = z.infer<typeof AgentCapabilitySchema>;

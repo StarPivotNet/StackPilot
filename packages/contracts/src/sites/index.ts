@@ -146,7 +146,7 @@ export const CertificateRenewalTaskParametersSchema = z.object({
 });
 
 export const UpdateNodeCapabilitiesRequestSchema = z.object({
-  allowedCapabilities: z.array(AgentCapabilitySchema).max(16),
+  allowedCapabilities: z.array(AgentCapabilitySchema).max(20),
 }).strict().superRefine((value, context) => {
   if (new Set(value.allowedCapabilities).size !== value.allowedCapabilities.length) context.addIssue({ code: "custom", path: ["allowedCapabilities"], message: "capabilities must be unique" });
 });

@@ -1,7 +1,7 @@
 {
   "name": "stackpilot",
   "private": true,
-  "version": "0.3.0-preview.68",
+  "version": "0.3.0-preview.70",
   "license": "AGPL-3.0-only",
   "workspaces": [
     "packages/*",
@@ -19,10 +19,10 @@
     "dev:controller": "npm run dev --workspace @stackpilot/controller",
     "dev:agent": "npm run dev --workspace @stackpilot/agent",
     "agent:cert": "node scripts/generate-agent-dev-cert.mjs",
-    "typecheck": "npm run typecheck --workspace @stackpilot/contracts && npm run typecheck --workspace @stackpilot/host-telemetry && npm run typecheck --workspace @stackpilot/controller && npm run typecheck --workspace @stackpilot/agent && npm run typecheck --workspace @stackpilot/cert-helper && npm run typecheck --workspace @stackpilot/database-helper && npm run typecheck --workspace @stackpilot/ssh-helper && npm run typecheck --workspace @stackpilot/web",
+    "typecheck": "npm run typecheck --workspace @stackpilot/contracts && npm run typecheck --workspace @stackpilot/host-telemetry && npm run typecheck --workspace @stackpilot/controller && npm run typecheck --workspace @stackpilot/agent && npm run typecheck --workspace @stackpilot/cert-helper && npm run typecheck --workspace @stackpilot/database-helper && npm run typecheck --workspace @stackpilot/mesh-helper && npm run typecheck --workspace @stackpilot/ssh-helper && npm run typecheck --workspace @stackpilot/web",
     "lint": "npm run lint --workspaces --if-present && eslint tests scripts deploy/scripts eslint.config.js",
-    "test": "npm run test --workspace @stackpilot/contracts && npm run test --workspace @stackpilot/config && npm run test --workspace @stackpilot/controller && npm run test --workspace @stackpilot/web && npm run test --workspace @stackpilot/agent && npm run test --workspace @stackpilot/cert-helper && npm run test --workspace @stackpilot/database-helper && npm run test --workspace @stackpilot/ssh-helper && node --test tests/architecture/boundaries.test.js",
-    "build": "npm run build --workspace @stackpilot/config && npm run build --workspace @stackpilot/contracts && npm run build --workspace @stackpilot/host-telemetry && npm run build --workspace @stackpilot/agent && npm run build --workspace @stackpilot/cert-helper && npm run build --workspace @stackpilot/database-helper && npm run build --workspace @stackpilot/ssh-helper && npm run build --workspace @stackpilot/controller && npm run build --workspace @stackpilot/web",
+    "test": "npm run test --workspace @stackpilot/contracts && npm run test --workspace @stackpilot/config && npm run test --workspace @stackpilot/controller && npm run test --workspace @stackpilot/web && npm run test --workspace @stackpilot/agent && npm run test --workspace @stackpilot/cert-helper && npm run test --workspace @stackpilot/database-helper && npm run test --workspace @stackpilot/mesh-helper && npm run test --workspace @stackpilot/ssh-helper && node --test tests/architecture/boundaries.test.js",
+    "build": "npm run build --workspace @stackpilot/config && npm run build --workspace @stackpilot/contracts && npm run build --workspace @stackpilot/host-telemetry && npm run build --workspace @stackpilot/agent && npm run build --workspace @stackpilot/cert-helper && npm run build --workspace @stackpilot/database-helper && npm run build --workspace @stackpilot/mesh-helper && npm run build --workspace @stackpilot/ssh-helper && npm run build --workspace @stackpilot/controller && npm run build --workspace @stackpilot/web",
     "test:deploy": "node --test tests/deploy/*.test.js",
     "pretest:e2e": "npm run build",
     "test:e2e": "playwright test",

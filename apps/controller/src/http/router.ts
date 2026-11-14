@@ -87,7 +87,7 @@ export async function routeRequest(context: RequestContext): Promise<void> {
   }
   if (parts[0] === "api" && ["auth", "tokens", "roles", "users", "audit"].includes(parts[1] ?? "")) { await routeIdentityRequest(context); return; }
   if (parts[0] === "api" && parts[1] === "audit-exports") { await routeAuditExportRequest(context); return; }
-  if (parts[0] === "api" && ["enrollments", "nodes", "remote-tasks"].includes(parts[1] ?? "")) {
+  if (parts[0] === "api" && ["enrollments", "nodes", "remote-tasks", "network"].includes(parts[1] ?? "")) {
     await routeControlPlaneRequest(context); return;
   }
   if (parts[0] === "api" && parts[1] === "terminal") { await routeTerminalRequest(context); return; }

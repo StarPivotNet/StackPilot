@@ -1,3 +1,5 @@
 g stackpilot-cert -
+g stackpilot-mesh -
 u stackpilot-agent - "StackPilot Agent" /var/lib/stackpilot-agent /usr/sbin/nologin
 m stackpilot-agent stackpilot-cert
+m stackpilot-agent stackpilot-mesh

@@ -143,7 +143,7 @@ export class OverviewService {
   private remoteTask(task: RemoteTaskRecord, nodes: AgentNodeState[]): OverviewTaskRecord {
     const effectiveStatus = !["succeeded", "failed", "cancelled", "expired"].includes(task.status) && Date.parse(task.expiresAt) <= Date.now() ? "expired" : task.status;
     const status = { queued: "等待", dispatched: "运行中", running: "运行中", succeeded: "成功", failed: "失败", cancelled: "取消", expired: "过期" }[effectiveStatus] as OverviewTaskRecord["status"];
-    const title = task.type === "system.summary.read" ? "采集系统摘要" : "采集服务状态";
+    const title = task.type === "system.summary.read" ? "采集系统摘要" : task.type === "network.mesh.status.read" ? "采集组网状态" : "采集服务状态";
     return { id: task.taskId, type: "远程任务", title, target: nodes.find((node) => node.nodeId === task.targetNodeId)?.nodeName ?? task.targetNodeId, status, priority: ["失败", "过期"].includes(status) ? "高" : status === "成功" ? "低" : "中", operator: task.requester, queuedAt: displayTime(new Date(task.createdAt)), duration: effectiveStatus === "running" ? "运行中" : "暂不可用", source: "Agent 控制面", actionLabel: "查看", collectedAt: task.updatedAt, logs: [task.result?.message, task.errorCode, effectiveStatus === "expired" && task.status !== "expired" ? "任务已超过有效期" : null].filter((value): value is string => Boolean(value)) };
   }
 

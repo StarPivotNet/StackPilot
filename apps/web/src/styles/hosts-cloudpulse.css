@@ -23,7 +23,8 @@
 .resource-cloudpulse .module-table td:last-child { border-radius: 0 12px 12px 0; }
 .resource-cloudpulse .module-table .empty-row { border-radius: 12px; padding: 32px 16px; }
 .resource-cloudpulse .module-table th:first-child { width: 20%; }
-.resource-cloudpulse .module-table th:last-child { width: 80px; }
+/* A trailing control column is pinned to the width its call site declares, with the 80px action floor; a chip or a timestamp there takes an even share instead. */
+.resource-cloudpulse .module-table[data-tail="control"] th:last-child { width: max(80px, var(--tail-column-width, 80px)); }
 .resource-cloudpulse .module-table td > :is(span, code, button) { max-width: 100%; }
 .resource-cloudpulse :is(.module-card-row, .module-card-empty) { min-width: 0; padding: 16px; border: 0; border-radius: 12px; background: var(--surface); box-shadow: none; }
 .resource-cloudpulse .module-card-list { gap: 16px; }

@@ -1,0 +1,253 @@
+.mesh-topology .mesh-overlay-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+}
+
+.mesh-overlay-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.mesh-overlay-head h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.mesh-overlay-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mesh-overlay-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: var(--space-4);
+}
+
+.mesh-overlay-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mesh-overlay-stats dt {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+}
+
+.mesh-overlay-stats dd {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.mesh-address {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mesh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.mesh-chip svg {
+  flex: none;
+}
+
+.mesh-chip.healthy,
+.mesh-chip.green {
+  color: #16a34a;
+  background: var(--success-soft);
+  border-color: var(--success-line);
+}
+
+.mesh-chip.degraded,
+.mesh-chip.orange {
+  color: #ca8a04;
+  background: var(--warning-soft);
+  border-color: var(--warning-line);
+}
+
+.mesh-chip.red {
+  color: #dc2626;
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+}
+
+.mesh-chip.blue {
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+}
+
+/* The host table recipe pins the last column at 80px for an action cell, but the cards on 下载任务 put
+   a status chip there (出口状态, 流量配额), and a chip does not fit in 80px. Scoped to the card so the
+   hosts tables keep their action column. */
+.mesh-topology .mesh-overlay-card .module-table th:last-child {
+  width: 148px;
+}
+
+.mesh-chip.gray {
+  color: var(--muted);
+  background: var(--surface-hover);
+  border-color: var(--line);
+}
+
+.mesh-handshake {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: center;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mesh-handshake small {
+  grid-column: 2;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* DESIGN status-text colors, matching .green-text/.orange-text/.red-text; --success and --warning are fill tones and too light for 14px text. */
+.mesh-handshake.green { color: #16a34a; }
+.mesh-handshake.orange { color: #ca8a04; }
+.mesh-handshake.red { color: #dc2626; }
+.mesh-handshake.gray { color: var(--muted); }
+
+.mesh-node-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mesh-muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.mesh-handshake-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mesh-firewall {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: center;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mesh-firewall svg {
+  flex: none;
+}
+
+.mesh-firewall small {
+  grid-column: 2;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.mesh-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.mesh-warnings li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.mesh-warnings svg {
+  flex: none;
+  margin-top: 2px;
+  color: #ca8a04;
+}
+
+.mesh-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--surface-soft);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+}
+
+.mesh-empty svg {
+  flex: none;
+  color: var(--primary);
+}
+
+.mesh-empty strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--text);
+  font-size: 16px;
+}
+
+.mesh-empty p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 773px) {
+  .mesh-topology .mesh-overlay-card {
+    padding: var(--space-4);
+  }
+
+  .mesh-overlay-head h2 {
+    font-size: 24px;
+  }
+}

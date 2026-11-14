@@ -2,6 +2,13 @@
 
 All notable changes follow Semantic Versioning. The project is currently prerelease software.
 
+## 0.3.0-preview.70 - 2026-11-14
+
+### Changed
+
+- Declare a control tail at the call site instead of matching column keys in the stylesheet: `TableColumn` gains `control`, `DataTable` marks such a table with `data-tail="control"` and hands the declared width to CSS, and the rule pins the tail to `max(80px, declared)`. 主机、数据库、下载任务、文件、回收站、站点与证书续期的操作列因此按各自声明的宽度渲染，而数据列继续保持均分。
+- Extend the desktop column contract to the download job page: a 96px control tail renders at 96px, a 64px declaration keeps the 80px floor, and a data tail stays unpinned.
+
 ## 0.3.0-preview.69 - 2026-11-13
 
 ### Added

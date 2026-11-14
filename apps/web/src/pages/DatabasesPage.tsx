@@ -162,7 +162,7 @@ function DatabasesPage({ page, setPage, notify, permissions = [] }: { page: Page
             { key: "slow", label: "慢查询", width: "74px", sortValue: (row) => row.slowQueries, render: (row) => row.slowQueries === null ? "暂不可用" : <b className={row.slowQueries > 0 ? "orange-text" : "green-text"}>{row.slowQueries}</b> },
             { key: "collected", label: "采集时间", width: "150px", sortValue: (row) => row.collectedAt, render: (row) => formatBackendDateTime(row.collectedAt) },
             { key: "access", label: "权限", width: "118px", render: (row) => <span className="database-pill-group"><span className={`pill ${row.access === "读写" ? "blue" : row.access === "只读" ? "gray" : "orange"}`}>{row.access}</span><span className="pill green">{row.owner}</span></span> },
-            { key: "ops", label: "操作", width: "64px", render: (row) => <span className="table-icon-actions database-table-actions"><button type="button" title="查看详情" aria-label={`查看 ${row.name} 详情`} onClick={() => setSelectedId(row.id)}><Eye size={15} /></button></span> },
+            { key: "ops", label: "操作", width: "64px", control: true, render: (row) => <span className="table-icon-actions database-table-actions"><button type="button" title="查看详情" aria-label={`查看 ${row.name} 详情`} onClick={() => setSelectedId(row.id)}><Eye size={15} /></button></span> },
           ]}
           rows={filteredRows}
           emptyText={error ? "实时采集失败，未显示示例数据库" : loading ? "正在采集数据库实例" : "没有匹配的真实数据库实例，系统将继续自动采集"}

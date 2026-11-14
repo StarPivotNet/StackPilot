@@ -1,6 +1,8 @@
 import { mkdir, statfs } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { NETWORK_TRANSFER_MIN_BYTES_PER_SECOND, NETWORK_TRANSFER_STALL_WINDOW_MS } from "@stackpilot/contracts";
 import { agentLogger } from "../logging/logger.js";
+import { ProgressDeadline } from "./progressDeadline.js";
 import { ContentCache } from "./store.js";
 
 /** The plan keeps the cache inside 10%–20% of the volume; 15% is the middle of that band. */
@@ -21,6 +23,21 @@ export function cacheCapacityFrom(volumeBytes: number) {
 export function configuredCapacityBytes(env: NodeJS.ProcessEnv = process.env) {
   const parsed = Number.parseInt(env.STACKPILOT_AGENT_CACHE_BYTES ?? "", 10);
   return Number.isSafeInteger(parsed) && parsed >= 1024 ** 2 && parsed <= CACHE_MAX_CAPACITY_BYTES ? parsed : undefined;
+}
+
+/**
+ * The only bound on a transfer that keeps trickling: an idle timer never fires while bytes arrive.
+ * A window of `0` disables it, which is the escape hatch for a node whose uplink is legitimately
+ * below the floor; any other unusable value falls back to the documented default.
+ */
+export function transferDeadlineFromEnv(env: NodeJS.ProcessEnv = process.env): ProgressDeadline | null {
+  const windowSeconds = Number.parseInt(env.STACKPILOT_AGENT_CACHE_STALL_WINDOW_SECONDS ?? "", 10);
+  if (windowSeconds === 0) return null;
+  const minRate = Number.parseInt(env.STACKPILOT_AGENT_CACHE_MIN_BYTES_PER_SECOND ?? "", 10);
+  return new ProgressDeadline({
+    windowMs: Number.isSafeInteger(windowSeconds) && windowSeconds >= 10 ? windowSeconds * 1000 : NETWORK_TRANSFER_STALL_WINDOW_MS,
+    minBytesPerSecond: Number.isSafeInteger(minRate) && minRate > 0 ? minRate : NETWORK_TRANSFER_MIN_BYTES_PER_SECOND,
+  });
 }
 
 async function volumeBytes(root: string) {

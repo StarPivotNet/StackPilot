@@ -91,7 +91,7 @@ function certificateColumns(canRenew: boolean, onOpen: (id: string) => void, onR
     { key: "issuer", label: "签发方", width: "156px", render: (row) => <span className="site-truncate" title={row.certificateIssuer}>{row.certificateIssuer}</span> },
     { key: "freshness", label: "采集时间", width: "152px", render: (row) => <span className="cert-freshness"><b>{row.freshness === "current" ? "新鲜" : row.freshness === "stale" ? "陈旧" : "等待"}</b><small>{formatBackendDateTime(row.collectedAt)}</small></span> },
     { key: "renewal", label: "最新任务", width: "112px", render: (row) => <span className={`renewal-state is-${row.renewal.status}`}>{renewalStatusLabel(row.renewal.status)}</span> },
-    { key: "actions", label: "操作", width: canRenew ? "152px" : "80px", render: (row) => <span className="cert-actions"><button className="ghost small" type="button" aria-label={`查看 ${row.domain} 证书详情`} onClick={() => onOpen(row.id)}><Eye size={15} /> 详情</button>{canRenew && <button className="primary small" type="button" disabled={!canRenewSiteCertificate(row)} aria-label={`续期 ${row.domain} 证书`} title={row.certificate.unavailableReason ?? undefined} onClick={() => onRenew(row)}><RefreshCw size={15} /> 续期</button>}</span> },
+    { key: "actions", label: "操作", width: canRenew ? "152px" : "80px", control: true, render: (row) => <span className="cert-actions"><button className="ghost small" type="button" aria-label={`查看 ${row.domain} 证书详情`} onClick={() => onOpen(row.id)}><Eye size={15} /> 详情</button>{canRenew && <button className="primary small" type="button" disabled={!canRenewSiteCertificate(row)} aria-label={`续期 ${row.domain} 证书`} title={row.certificate.unavailableReason ?? undefined} onClick={() => onRenew(row)}><RefreshCw size={15} /> 续期</button>}</span> },
   ];
 }
 

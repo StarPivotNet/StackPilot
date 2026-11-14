@@ -25,6 +25,8 @@ export type CacheOptions = {
 const INDEX_FILE = "index.json";
 const OBJECTS_DIR = "objects";
 const TEMP_DIR = "tmp";
+/** Resumable segmented downloads live here: unlike `tmp`, this directory survives a restart. */
+const STAGING_DIR = "staging";
 const DEFAULT_RESERVE_BYTES = 512 * 1024 ** 2;
 
 const BytesSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
@@ -73,6 +75,18 @@ export class ContentCache {
   }
 
   private get indexPath() { return join(this.root, INDEX_FILE); }
+  get stagingRoot() { return join(this.root, STAGING_DIR); }
+  get capacity() { return this.capacityBytes; }
+
+  /**
+   * Staged parts are not in the index, so only the volume has to hold them until the commit.
+   * Checked before the first byte lands instead of failing after a multi-gigabyte download.
+   */
+  async canStage(bytes: number) {
+    if (bytes > this.capacityBytes) return false;
+    const free = await this.diskFreeBytes();
+    return free === null || free - bytes >= this.reserveBytes;
+  }
 
   private objectPath(digest: string) { return join(this.root, OBJECTS_DIR, digest.slice(0, 2), digest); }
 
@@ -201,13 +215,22 @@ export class ContentCache {
   }
 
   async commit(tempPath: string, input: CacheCommit): Promise<CacheEntry> {
+    return this.commitInternal(tempPath, input, true);
+  }
+
+  /** A staged object already occupies the volume, so only the capacity bound and LRU still apply. */
+  async commitStaged(tempPath: string, input: CacheCommit): Promise<CacheEntry> {
+    return this.commitInternal(tempPath, input, false);
+  }
+
+  private async commitInternal(tempPath: string, input: CacheCommit, checkDisk: boolean): Promise<CacheEntry> {
     return this.serialize(async () => {
       const info = await stat(tempPath).catch(() => null);
       if (!info?.isFile() || info.size !== input.sizeBytes) {
         await rm(tempPath, { force: true }).catch(() => undefined);
         throw new CacheError("CACHE_TEMP_INVALID", "The staged object does not match its recorded size");
       }
-      await this.makeRoom(input.sizeBytes);
+      await this.makeRoom(input.sizeBytes, checkDisk);
       const target = this.objectPath(input.digest);
       await mkdir(dirname(target), { recursive: true, mode: 0o700 });
       await rename(tempPath, target);
@@ -230,11 +253,11 @@ export class ContentCache {
   }
 
   /** LRU first, then the free-space reserve; a store that cannot fit refuses instead of filling the disk. */
-  private async makeRoom(bytes: number) {
+  private async makeRoom(bytes: number, checkDisk = true) {
     this.index.entries.sort((left, right) => Date.parse(left.lastUsedAt) - Date.parse(right.lastUsedAt));
     let used = this.index.entries.reduce((sum, entry) => sum + entry.sizeBytes, 0);
     let free = await this.diskFreeBytes();
-    const fits = () => used + bytes <= this.capacityBytes && (free === null || free - bytes >= this.reserveBytes);
+    const fits = () => used + bytes <= this.capacityBytes && (!checkDisk || free === null || free - bytes >= this.reserveBytes);
     while (this.index.entries.length > 0 && !fits()) {
       used -= await this.evictOne();
       free = await this.diskFreeBytes();

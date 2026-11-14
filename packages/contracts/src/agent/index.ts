@@ -8,4 +8,5 @@ export * from "./databases.js";
 export * from "./mesh.js";
 export * from "./cache.js";
 export * from "./egress.js";
+export * from "./downloads.js";
 export * from "./physicalIdentity.js";

@@ -45,6 +45,7 @@ import { parseMasterKey } from "./security/crypto.js";
 import { loadOrCreateAuditKey } from "./security/secretStore.js";
 import { openDatabase } from "./database/database.js";
 import { SqliteAgentControlRepository } from "./repositories/sqliteAgentControlRepository.js";
+import { MemoryNetworkObservabilityRepository, SqliteNetworkObservabilityRepository } from "./repositories/networkObservabilityRepository.js";
 import { requestSource } from "./http/trustedProxy.js";
 import { SecretStore } from "./security/secretStore.js";
 import { MemorySiteManagementRepository, SqliteSiteManagementRepository, type SiteManagementRepository } from "./modules/sites/siteManagementRepository.js";
@@ -116,9 +117,10 @@ export function createControllerServices(
     ? new SqliteDatabaseRepository(database, parseMasterKey(config.masterKey))
     : undefined;
   const nodes = new NodeService(repository);
-  const mesh = new MeshService(repository, remoteTasks);
+  const networkStore = database ? new SqliteNetworkObservabilityRepository(database) : new MemoryNetworkObservabilityRepository();
+  const mesh = new MeshService(repository, remoteTasks, networkStore);
   const cache = new CacheService(repository);
-  const egress = new EgressService(repository, remoteTasks, { targets: config.egressProbeTargets });
+  const egress = new EgressService(repository, remoteTasks, { targets: config.egressProbeTargets, store: networkStore, trafficQuotaBytes: config.meshTrafficQuotaBytes });
   let managedSsh = database ? sshServices.get(database) : undefined;
   if (!managedSsh && database && audit) {
     const ssh = new SshService(database, audit), verifier = new SshTakeoverVerifier(ssh);

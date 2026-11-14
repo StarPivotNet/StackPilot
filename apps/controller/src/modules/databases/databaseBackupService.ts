@@ -6,9 +6,11 @@ import { basename, delimiter, dirname, extname, isAbsolute, join, resolve } from
 import type { DatabaseBackupRecord, DatabaseBackupsPayload } from "@stackpilot/contracts";
 import type Database from "better-sqlite3";
 import type { ControllerConfig } from "../../config/environment.js";
+import { LATEST_SCHEMA_VERSION } from "../../database/database.js";
 import { ServiceError } from "../serviceError.js";
 
-const SUPPORTED_SCHEMA_VERSIONS = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+/** A backup from any schema this build knows can be drilled; a newer one cannot be read safely. */
+const SUPPORTED_SCHEMA_VERSIONS = new Set(Array.from({ length: LATEST_SCHEMA_VERSION }, (_, index) => index + 1));
 const BACKUP_EXTENSIONS = new Set([".db", ".sqlite", ".sqlite3"]);
 const MAX_BACKUPS = 200;
 

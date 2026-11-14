@@ -2,7 +2,7 @@ import {
   AgentNodeListResponseSchema, CancelRemoteTaskRequestSchema, CreateEnrollmentRequestSchema,
   CreateRemoteTaskRequestSchema, EnrollmentCredentialSchema, PathIdSchema, RemoteTaskListResponseSchema, RemoteTaskRecordSchema, ApiNoticeSchema,
   AgentNodeRecordSchema, NetworkCachePlanResponseSchema, NetworkMeshPlanResponseSchema, UpdateNodeCapabilitiesRequestSchema,
-  NetworkCacheDownloadRequestSchema, NetworkCacheDownloadResponseSchema, NetworkEgressPlanResponseSchema,
+  NetworkCacheDownloadJobListResponseSchema, NetworkCacheDownloadRequestSchema, NetworkCacheDownloadResponseSchema, NetworkEgressPlanResponseSchema,
 } from "@stackpilot/contracts";
 import type { RequestContext } from "./types.js";
 import { notFound } from "./errors/ApiError.js";
@@ -87,6 +87,17 @@ export async function routeControlPlaneRequest(context: RequestContext) {
   if (context.parts[1] === "network" && context.parts[2] === "egress" && context.parts.length === 3 && method === "GET") {
     identity?.require(principal,"nodes:read");
     sendJson(context.response, 200, await context.services.egress.plan(), NetworkEgressPlanResponseSchema); return;
+  }
+  if (context.parts[1] === "network" && context.parts[2] === "cache" && context.parts[3] === "downloads" && context.parts.length === 4 && method === "GET") {
+    identity?.require(principal,"tasks:read");
+    sendJson(context.response, 200, await context.services.egress.jobs({ permissions: principal?.permissions ?? new Set(), nodeScope: principal?.nodeScope ?? [] }), NetworkCacheDownloadJobListResponseSchema); return;
+  }
+  if (context.parts[1] === "network" && context.parts[2] === "cache" && context.parts[3] === "downloads" && context.parts.length === 6 && context.parts[5] === "retry" && method === "POST") {
+    // A retry replays parameters the Controller already accepted, so it needs the task permission
+    // but not a second reauthentication: no new URL enters the system.
+    identity?.require(principal,"tasks:create");
+    sendJson(context.response, 201, await context.services.egress.retry(context.parts[4]!, `user:${principal?.userId}`, context.requestId,
+      { permissions: principal?.permissions ?? new Set(), nodeScope: principal?.nodeScope ?? [] }), NetworkCacheDownloadResponseSchema); return;
   }
   if (context.parts[1] === "network" && context.parts[2] === "cache" && context.parts[3] === "downloads" && context.parts.length === 4 && method === "POST") {
     const input = parseSchema(NetworkCacheDownloadRequestSchema, context.body, "缓存下载请求");

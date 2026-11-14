@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { NETWORK_CACHE_MAX_FETCH_BYTES, NetworkCacheDigestSchema } from "./cache.js";
+import { NETWORK_CACHE_MAX_FETCH_BYTES, NETWORK_SEGMENT_MAX_SOURCES, NetworkCacheDigestSchema, NetworkCacheSegmentSourceSchema } from "./cache.js";
 
 /** The helper opens exactly this port on the overlay; the proxy binds it and nothing else. */
 export const MESH_DATA_PLANE_PORT = 18080;
 export const MESH_DATA_PLANE_FETCH_PATH = "/v1/fetch";
+/** Byte ranges for a segmented download: streamed from the origin and never stored on the peer. */
+export const MESH_DATA_PLANE_RANGE_PATH = "/v1/range";
 export const MESH_DATA_PLANE_HEALTH_PATH = "/healthz";
 
 /** A probe every ten minutes keeps a fifteen-minute sample fresh through one missed round. */
@@ -50,10 +52,16 @@ export const NetworkEgressSampleViewSchema = z.object({
   ageSeconds: z.number().int().min(0).max(31_536_000),
 }).strict();
 
+/** The four ways a node drops out of routing: each needs a different fix, so one label would hide the action. */
+export const NetworkEgressDisabledReasonSchema = z.enum(["revoked", "no-overlay", "not-allowed", "not-declared"]);
+
 export const NetworkEgressNodeSchema = z.object({
   nodeId: z.string().uuid(),
   nodeName: z.string().min(1).max(120),
-  status: z.enum(["ready", "stale", "pending", "disabled"]),
+  // `offline` is a live-process fact, not a sample fact: selection skips such a node even when its samples are fresh.
+  status: z.enum(["ready", "stale", "pending", "disabled", "offline"]),
+  // Set only with `disabled`: which piece is missing, so the operator knows whether to grant, declare or re-enrol.
+  disabledReason: NetworkEgressDisabledReasonSchema.nullable(),
   overlayAddress: z.string().max(15).nullable(),
   dataPlanePort: z.number().int().min(1).max(65_535).nullable(),
   samples: z.array(NetworkEgressSampleViewSchema).max(EGRESS_PROBE_MAX_TARGETS),
@@ -107,12 +115,17 @@ export const NetworkCacheDownloadRequestSchema = z.object({
   maxBytes: z.number().int().min(1).max(NETWORK_CACHE_MAX_FETCH_BYTES).optional(),
   expiresInSeconds: z.number().int().min(30).max(900).optional(),
   idempotencyKey: z.string().min(8).max(160).optional(),
+  // Asks for a Range-parallel pull; the Controller still owns which peers may serve parts.
+  segments: z.object({ maxNodes: z.number().int().min(2).max(NETWORK_SEGMENT_MAX_SOURCES) }).strict().optional(),
 }).strict();
 
 export const NetworkCacheDownloadResponseSchema = z.object({
   taskId: z.string().uuid(),
   nodeId: z.string().uuid(),
-  selection: NetworkEgressSelectionSchema,
+  // Null when the job runs in segments: no single node is the egress.
+  selection: NetworkEgressSelectionSchema.nullable(),
+  // Nullish so a Controller that lags the panel still parses a response without the segment plan.
+  segments: z.object({ sources: z.array(NetworkCacheSegmentSourceSchema).max(NETWORK_SEGMENT_MAX_SOURCES) }).strict().nullish(),
 }).strict();
 
 export type NetworkCacheDownloadRequest = z.infer<typeof NetworkCacheDownloadRequestSchema>;
@@ -122,6 +135,7 @@ export type NetworkEgressProbeTaskParameters = z.infer<typeof NetworkEgressProbe
 export type NetworkEgressProbeSample = z.infer<typeof NetworkEgressProbeSampleSchema>;
 export type NetworkEgressProbeResult = z.infer<typeof NetworkEgressProbeResultSchema>;
 export type NetworkEgressNode = z.infer<typeof NetworkEgressNodeSchema>;
+export type NetworkEgressDisabledReason = z.infer<typeof NetworkEgressDisabledReasonSchema>;
 export type NetworkEgressPlanResponse = z.infer<typeof NetworkEgressPlanResponseSchema>;
 export type NetworkEgressSelection = z.infer<typeof NetworkEgressSelectionSchema>;
 export type NetworkEgressSelectionReason = z.infer<typeof NetworkEgressSelectionReasonSchema>;

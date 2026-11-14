@@ -9,6 +9,8 @@ import {
   type NetworkMeshPlanResponse,
 } from "@stackpilot/contracts";
 import type { AgentControlRepository, AgentNodeState, AuditEvent } from "../../repositories/agentControlRepository.js";
+import { MemoryNetworkObservabilityRepository, type NetworkObservabilityRepository } from "../../repositories/networkObservabilityRepository.js";
+import { isNodeLive } from "../nodes/nodeLiveness.js";
 import { ServiceError } from "../serviceError.js";
 import type { RemoteTaskService } from "../remote-tasks/remoteTaskService.js";
 import { terminalTaskStatuses } from "../remote-tasks/remoteTaskService.js";
@@ -65,7 +67,15 @@ function allocate(nodeId: string, taken: ReadonlySet<string>, excluded: Readonly
 }
 
 export class MeshService {
-  constructor(private readonly repository: AgentControlRepository, private readonly remoteTasks: RemoteTaskService) {}
+  private readonly store: NetworkObservabilityRepository;
+
+  constructor(
+    private readonly repository: AgentControlRepository,
+    private readonly remoteTasks: RemoteTaskService,
+    store?: NetworkObservabilityRepository,
+  ) {
+    this.store = store ?? new MemoryNetworkObservabilityRepository();
+  }
 
   /** Assignments are computed the same way for reads and writes; only `apply` persists them. */
   private reserve(nodes: readonly AgentNodeState[]) {
@@ -82,15 +92,27 @@ export class MeshService {
   }
 
   private buildConfiguration(node: AgentNodeState, revision: number, members: readonly AgentNodeState[]): NetworkMeshConfiguration {
+    return NetworkMeshConfigurationSchema.parse({
+      sourceRevision: revision, address: node.meshAssignment!.overlayAddress,
+      listenPort: MESH_LISTEN_PORT, mtu: MESH_MTU, peers: this.configurationPeers(node, members),
+    });
+  }
+
+  /** A member without a key or an address cannot be a peer, so it is not in the configuration either. */
+  private configurationPeers(node: AgentNodeState, members: readonly AgentNodeState[]) {
     const peers: NetworkMeshPeerConfig[] = [];
     for (const member of members) {
       if (member.nodeId === node.nodeId || !member.meshIdentity?.publicKey || !member.meshAssignment?.overlayAddress) continue;
       peers.push({ publicKey: member.meshIdentity.publicKey, overlayAddress: member.meshAssignment.overlayAddress, endpoint: endpointFor(member) });
     }
-    return NetworkMeshConfigurationSchema.parse({
-      sourceRevision: revision, address: node.meshAssignment!.overlayAddress,
-      listenPort: MESH_LISTEN_PORT, mtu: MESH_MTU, peers,
-    });
+    return peers;
+  }
+
+  /** Peer ids the same way `configurationPeers` counts them, so the record matches what was sent. */
+  private configurationPeerIds(node: AgentNodeState, members: readonly AgentNodeState[]) {
+    return members
+      .filter((member) => member.nodeId !== node.nodeId && member.meshIdentity?.publicKey && member.meshAssignment?.overlayAddress)
+      .map((member) => member.nodeId);
   }
 
   private project(nodes: readonly AgentNodeState[], addresses: ReadonlyMap<string, string>, now: Date): NetworkMeshNodeState[] {
@@ -127,13 +149,23 @@ export class MeshService {
       if (!node) continue;
       if (state.status === "pending" && node.meshIdentity?.publicKey) warnings.push(`节点 ${node.nodeName} 尚未收到配置 revision，请下发后再检查握手`);
       else if (!node.meshIdentity?.publicKey) warnings.push(`节点 ${node.nodeName} 尚未上报组网公钥，等 Agent 完成心跳后再下发`);
-      else if (node.status !== "online") warnings.push(`节点 ${node.nodeName} 当前离线，配置会在恢复后生效`);
+      else if (!isNodeLive(node)) warnings.push(`节点 ${node.nodeName} 当前离线，配置会在恢复后生效`);
       if (insideOverlay(node.telemetry?.primaryIp)) warnings.push(`节点 ${node.nodeName} 的主机地址落在共享网段 100.64.0.0/10 内，需要人工确认是否冲突`);
       if (state.firewallEnforced === false) warnings.push(`节点 ${node.nodeName} 的 overlay 端口白名单未生效，请在该节点确认 nft 可用后重新下发配置`);
       if (state.interfaceUp === false) warnings.push(`节点 ${node.nodeName} 的 wg 接口处于 down，overlay 链路不可用，请重新下发配置`);
       if (state.status !== "ready" || state.handshake === null || state.handshake.peerCount === 0) continue;
       if (state.handshake.ageSeconds === null) warnings.push(`节点 ${node.nodeName} 已配置但从未完成握手，请检查 UDP ${MESH_LISTEN_PORT} 是否放通`);
       else if (state.handshake.ageSeconds > MESH_HANDSHAKE_TIMEOUT_SECONDS) warnings.push(`节点 ${node.nodeName} 最近一次握手在 ${Math.floor(state.handshake.ageSeconds / 60)} 分钟前，链路可能已中断`);
+    }
+    // The record of what each node was handed catches a configuration that applied only partly: a
+    // peer that never made it into the file and a peer that is simply dead look identical otherwise.
+    const sent = new Map(this.store.meshPeerCounts().map((record) => [record.nodeId, record]));
+    for (const state of nodeStates) {
+      const record = sent.get(state.nodeId);
+      const reported = state.handshake?.peerCount;
+      if (!record || reported === undefined || record.revision !== state.configuredRevision) continue;
+      if (reported < record.peerCount) warnings.push(`节点 ${state.nodeName} 报告 ${reported} 个 peer，少于下发的 ${record.peerCount} 个，配置可能没有完整落盘`);
+      else if (reported > record.peerCount) warnings.push(`节点 ${state.nodeName} 报告 ${reported} 个 peer，多于下发的 ${record.peerCount} 个，可能有已撤销的 peer 残留`);
     }
     return warnings.slice(0, 20);
   }
@@ -152,6 +184,7 @@ export class MeshService {
   /** One task per target; `members` is the full peer set the configuration is built from. */
   private async dispatch(revision: number, members: readonly AgentNodeState[], targets: readonly AgentNodeState[], requester: string, traceId: string, attempt = 0) {
     const failed: string[] = [];
+    const dispatchedAt = new Date().toISOString();
     for (const node of targets) {
       try {
         await this.remoteTasks.create(node.nodeId, {
@@ -159,6 +192,7 @@ export class MeshService {
           parameters: { revision, configuration: this.buildConfiguration(node, revision, members) },
           expiresInSeconds: 120, idempotencyKey: attempt === 0 ? `mesh-${revision}-${node.nodeId}` : `mesh-${revision}-${node.nodeId}-${attempt}`,
         }, requester, traceId);
+        this.store.saveMeshPeers(node.nodeId, revision, this.configurationPeerIds(node, members), dispatchedAt);
       } catch { failed.push(node.nodeId); }
     }
     if (failed.length === 0) return;

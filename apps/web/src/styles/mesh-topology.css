@@ -113,6 +113,13 @@
   border-color: var(--primary-line);
 }
 
+/* The host table recipe pins the last column at 80px for an action cell, but the cards on 下载任务 put
+   a status chip there (出口状态, 流量配额), and a chip does not fit in 80px. Scoped to the card so the
+   hosts tables keep their action column. */
+.mesh-topology .mesh-overlay-card .module-table th:last-child {
+  width: 148px;
+}
+
 .mesh-chip.gray {
   color: var(--muted);
   background: var(--surface-hover);

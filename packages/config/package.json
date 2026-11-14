@@ -1,7 +1,7 @@
 {
   "name": "@stackpilot/config",
   "private": true,
-  "version": "0.3.0-preview.69",
+  "version": "0.3.0-preview.70",
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {

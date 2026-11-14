@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { AgentCapabilitySchema } from "./capabilities.js";
 import { NetworkMeshApplyDataSchema, NetworkMeshConfigurationSchema, NetworkMeshStatusDataSchema } from "./mesh.js";
-import { NetworkCacheFetchResultSchema, NetworkCacheFetchTaskParametersSchema } from "./cache.js";
+import { NETWORK_SEGMENT_MAX_SOURCES, NetworkCacheFetchResultSchema, NetworkCacheFetchTaskParametersSchema } from "./cache.js";
 import { NetworkEgressProbeResultSchema, NetworkEgressProbeTaskParametersSchema } from "./egress.js";
 import { ProtocolVersionSchema } from "../versioning/index.js";
 import {
@@ -63,15 +63,40 @@ export const RemoteTaskEnvelopeSchema = z.object({
   requiredCapability: AgentCapabilitySchema, attempt: z.number().int().min(0).max(3), maxAttempts: z.number().int().min(1).max(3),
 }).strict();
 export const RemoteTaskResultSummarySchema = z.object({ message: z.string().max(1024), data: z.record(z.string(), z.unknown()).optional(), truncated: z.boolean().default(false) }).strict();
+// A running task may publish counters; the rate is the Controller's own derivation from two samples.
+export const RemoteTaskPartProgressSampleSchema = z.object({
+  index: z.number().int().min(0).max(NETWORK_SEGMENT_MAX_SOURCES + 1),
+  sourceNodeId: z.string().uuid(),
+  bytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  totalBytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+}).strict();
+export const RemoteTaskProgressSampleSchema = z.object({
+  bytesReceived: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  totalBytes: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).nullable(),
+  partsDone: z.number().int().nonnegative().max(NETWORK_SEGMENT_MAX_SOURCES),
+  partsTotal: z.number().int().nonnegative().max(NETWORK_SEGMENT_MAX_SOURCES),
+  // Absent on a direct fill, and on an Agent that predates per-part counters.
+  parts: z.array(RemoteTaskPartProgressSampleSchema).max(NETWORK_SEGMENT_MAX_SOURCES + 1).optional(),
+}).strict();
+export const RemoteTaskProgressSchema = RemoteTaskProgressSampleSchema.extend({
+  bytesPerSecond: z.number().nonnegative().max(1e12).nullable(),
+  // Each part carries the rate the Controller derived for it, never one the Agent measured itself.
+  parts: z.array(RemoteTaskPartProgressSampleSchema.extend({
+    bytesPerSecond: z.number().nonnegative().max(1e12).nullable(),
+  })).max(NETWORK_SEGMENT_MAX_SOURCES + 1).optional(),
+  updatedAt: z.string().datetime(),
+}).strict();
 export const RemoteTaskStatusUpdateSchema = z.object({
   taskId: z.string().uuid(), attempt: z.number().int().min(1).max(3), status: z.enum(["running", "succeeded", "failed", "cancelled"]), timestamp: z.string().datetime(),
   result: RemoteTaskResultSummarySchema.optional(), errorCode: z.string().max(80).optional(),
+  progress: RemoteTaskProgressSampleSchema.optional(),
 }).strict();
 export const RemoteTaskPollResponseSchema = z.object({ tasks: z.array(RemoteTaskEnvelopeSchema).max(10), cancelledTaskIds: z.array(z.string().uuid()).max(100), controllerTime: z.string().datetime() });
 export const CancelRemoteTaskRequestSchema = z.object({ reason: z.string().trim().min(1).max(240).default("administrator-request") }).strict();
 export const RemoteTaskRecordSchema = RemoteTaskEnvelopeSchema.extend({
   status: RemoteTaskStatusSchema, updatedAt: z.string().datetime(), result: RemoteTaskResultSummarySchema.nullable(),
   errorCode: z.string().nullable(), retryable: z.boolean(), nextAttemptAt: z.string().datetime().nullable(),
+  progress: RemoteTaskProgressSchema.nullable().optional(),
 });
 export const RemoteTaskListResponseSchema = z.object({
   tasks: z.array(RemoteTaskRecordSchema),
@@ -84,4 +109,7 @@ export type CreateRemoteTaskRequest = z.infer<typeof CreateRemoteTaskRequestSche
 export type NetworkMeshConfigureTaskParameters = z.infer<typeof NetworkMeshConfigureTaskParametersSchema>;
 export type RemoteTaskStatusUpdate = z.infer<typeof RemoteTaskStatusUpdateSchema>;
 export type RemoteTaskResultSummary = z.infer<typeof RemoteTaskResultSummarySchema>;
+export type RemoteTaskProgressSample = z.infer<typeof RemoteTaskProgressSampleSchema>;
+export type RemoteTaskPartProgressSample = z.infer<typeof RemoteTaskPartProgressSampleSchema>;
+export type RemoteTaskProgress = z.infer<typeof RemoteTaskProgressSchema>;
 export type RemoteTaskRecord = z.infer<typeof RemoteTaskRecordSchema>;

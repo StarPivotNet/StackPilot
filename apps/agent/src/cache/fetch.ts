@@ -3,49 +3,27 @@ import { createWriteStream } from "node:fs";
 import { rm } from "node:fs/promises";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { NETWORK_CACHE_MAX_FETCH_BYTES, type NetworkCacheFetchResult, type NetworkCacheFetchTaskParameters } from "@stackpilot/contracts";
 import { openEgressResponse } from "../dataPlane/client.js";
-import type { DataPlaneIdentity } from "../dataPlane/auth.js";
+import { PROGRESS_STEP_BYTES, type FetchDependencies } from "./dependencies.js";
 import { CacheError } from "./errors.js";
+import { openOriginResponse, toNodeStream } from "./origin.js";
+import type { ProgressDeadline } from "./progressDeadline.js";
+import { fetchSegmented, type SegmentPartReport } from "./segmented.js";
 import type { ContentCache } from "./store.js";
 import { assertAllowedOriginUrl } from "./urlPolicy.js";
 
-const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
-const MAX_REDIRECTS = 3;
 const DEFAULT_MAX_BYTES = 512 * 1024 ** 2;
 
-export type FetchDependencies = {
-  cache: ContentCache;
-  signal?: AbortSignal;
-  fetchImpl?: typeof fetch;
-  /** Required to call a peer's proxy; without it an egress request degrades to a direct fetch. */
-  identity?: DataPlaneIdentity;
-  /**
-   * Authoritative peer lookup: a task parameter may name any address, so the receiving node only
-   * calls an egress whose overlay address and port match the Controller's own directory entry.
-   */
-  peerEgress?: (nodeId: string) => { overlayAddress: string; port: number } | null;
-};
+export { openOriginResponse } from "./origin.js";
+export type { FetchDependencies } from "./dependencies.js";
 
 type Fill = { digest: string; sizeBytes: number; originBytes: number; storedAt: string };
-export type EnsuredObject = Fill & { hit: boolean; viaEgress: boolean; egressNodeId: string | null; egressFallbackReason?: string };
-
-/** `redirect: manual` because every hop has to pass the same host policy as the first one. */
-export async function openOriginResponse(url: string, dependencies: { fetchImpl?: typeof fetch; signal?: AbortSignal }): Promise<Response> {
-  const fetchImpl = dependencies.fetchImpl ?? fetch;
-  let current = url;
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    const init: RequestInit = { method: "GET", redirect: "manual", ...(dependencies.signal ? { signal: dependencies.signal } : {}) };
-    const response = await fetchImpl(current, init);
-    if (!REDIRECT_STATUS.has(response.status)) return response;
-    const location = response.headers.get("location");
-    await response.body?.cancel().catch(() => undefined);
-    if (!location) throw new CacheError("CACHE_REDIRECT_INVALID", "The origin redirected without a location");
-    current = assertAllowedOriginUrl(new URL(location, current).toString()).toString();
-  }
-  throw new CacheError("CACHE_REDIRECT_LIMIT", "The origin redirected more than three times");
-}
+export type EnsuredObject = Fill & {
+  hit: boolean; viaEgress: boolean; egressNodeId: string | null;
+  egressFallbackReason?: string; segmentsFallbackReason?: string;
+  segmented?: boolean; segmentCount?: number; segmentSources?: string[]; parts?: SegmentPartReport[]; resumedBytes?: number;
+};
 
 async function discard(path: string) { await rm(path, { force: true }).catch(() => undefined); }
 
@@ -53,25 +31,54 @@ function errorCode(error: unknown) {
   return error instanceof CacheError ? error.code : error instanceof Error ? error.name : "UNKNOWN";
 }
 
+/** A deadline that already fired ends the task: no further route can make progress. */
+function assertLive(deadline: ProgressDeadline | null | undefined) {
+  const stalled = deadline?.signal.reason;
+  if (stalled instanceof Error) throw stalled;
+}
+
+/** A stall belongs to the task, not the route: another route would crawl the same link. */
+function isStalled(error: unknown) {
+  return error instanceof CacheError && error.code === "CACHE_TRANSFER_STALLED";
+}
+
+/** A whole-object fill has no parts; the byte counter is all the panel needs. */
+function directProgress(dependencies: FetchDependencies) {
+  return dependencies.onProgress
+    ? (bytesReceived: number, totalBytes: number | null) => dependencies.onProgress!({ bytesReceived, totalBytes, partsDone: 0, partsTotal: 0 })
+    : undefined;
+}
+
 /** Streams one response body into the temp slot while hashing, so the key is what actually arrived. */
-async function store(response: { stream: Readable; declaredBytes?: number | null }, maxBytes: number, cache: ContentCache, input: { url: string; digest?: string }, signal?: AbortSignal) {
+async function store(response: { stream: Readable; declaredBytes?: number | null; deadline?: ProgressDeadline }, maxBytes: number, cache: ContentCache, input: { url: string; digest?: string }, signal?: AbortSignal, onProgress?: (bytesReceived: number, totalBytes: number | null) => void) {
   if (input.digest === undefined && response.declaredBytes && response.declaredBytes > maxBytes) throw new CacheError("CACHE_TOO_LARGE", "The object exceeds the fetch limit");
+  // The volume check belongs before the first byte: an object the cache can never commit must not
+  // be downloaded first and then thrown away, which is what a late commit refusal would do.
+  if (response.declaredBytes && !(await cache.canStage(response.declaredBytes))) {
+    response.stream.destroy();
+    throw new CacheError("CACHE_DISK_LOW", "The cache volume cannot hold the object above its reserve");
+  }
   const tempPath = cache.reservePath();
   const digest = createHash("sha256");
   let bytes = 0;
+  let reported = 0;
   const meter = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       bytes += chunk.length;
+      response.deadline?.observe(chunk.length);
       if (bytes > maxBytes) { callback(new CacheError("CACHE_TOO_LARGE", "The object exceeded the fetch limit while streaming")); return; }
       digest.update(chunk);
+      if (onProgress && bytes - reported >= PROGRESS_STEP_BYTES) { reported = bytes; onProgress(bytes, response.declaredBytes ?? null); }
       callback(null, chunk);
     },
   });
   try {
-    await pipeline(response.stream, meter, createWriteStream(tempPath, { mode: 0o600 }));
+    await pipeline(response.stream, meter, createWriteStream(tempPath, { mode: 0o600 }), response.deadline ? { signal: response.deadline.signal } : {});
   } catch (error) {
     await discard(tempPath);
     if (signal?.aborted) throw new CacheError("CACHE_FETCH_CANCELLED", "The cache fill was cancelled");
+    // The deadline aborts the pipeline with the coded error as the reason; that code is the answer.
+    if (response.deadline?.signal.reason instanceof CacheError) throw response.deadline.signal.reason;
     throw error instanceof CacheError ? error : new CacheError("CACHE_FETCH_FAILED", "The transfer failed");
   }
   const hex = digest.digest("hex");
@@ -86,6 +93,7 @@ async function store(response: { stream: Readable; declaredBytes?: number | null
 }
 
 async function fillFromOrigin(url: string, maxBytes: number, parameters: NetworkCacheFetchTaskParameters, dependencies: FetchDependencies): Promise<Fill> {
+  assertLive(dependencies.deadline);
   const response = await openOriginResponse(url, dependencies);
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
@@ -99,13 +107,15 @@ async function fillFromOrigin(url: string, maxBytes: number, parameters: Network
     throw new CacheError("CACHE_TOO_LARGE", "The origin object exceeds the fetch limit");
   }
   const stored = await store(
-    { stream: Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>), declaredBytes },
+    { stream: toNodeStream(response.body), declaredBytes, ...(dependencies.deadline ? { deadline: dependencies.deadline } : {}) },
     maxBytes, dependencies.cache, { url, ...(parameters.digest ? { digest: parameters.digest } : {}) }, dependencies.signal,
+    directProgress(dependencies),
   );
   return { ...stored, originBytes: stored.sizeBytes };
 }
 
 async function fillFromEgress(parameters: NetworkCacheFetchTaskParameters & { egress: NonNullable<NetworkCacheFetchTaskParameters["egress"]> }, maxBytes: number, dependencies: FetchDependencies): Promise<Fill> {
+  assertLive(dependencies.deadline);
   if (!dependencies.identity) throw new CacheError("EGRESS_UNAVAILABLE", "This node has no identity to sign an egress request");
   const response = await openEgressResponse({
     egress: parameters.egress,
@@ -120,8 +130,9 @@ async function fillFromEgress(parameters: NetworkCacheFetchTaskParameters & { eg
     // Validate the stream before it is committed: a lying header must not leave a hit for this URL.
     const expected = response.digest ?? parameters.digest;
     const stored = await store(
-      { stream: response.stream, declaredBytes: response.sizeBytes },
+      { stream: response.stream, declaredBytes: response.sizeBytes, ...(dependencies.deadline ? { deadline: dependencies.deadline } : {}) },
       maxBytes, dependencies.cache, { url: parameters.url, ...(expected ? { digest: expected } : {}) }, dependencies.signal,
+      directProgress(dependencies),
     );
     // The peer already read the origin; the receiving node pulled nothing from the source itself.
     return { ...stored, originBytes: 0 };
@@ -135,8 +146,8 @@ async function fillFromEgress(parameters: NetworkCacheFetchTaskParameters & { eg
 }
 
 /**
- * Local cache first, then the Controller-chosen egress, then the origin. A dead egress never blocks the
- * fill: the failure is recorded on the result and the node fetches directly.
+ * Local cache first, then the Range-parallel pull, then the Controller-chosen egress, then the origin.
+ * A dead peer never blocks the fill: the failure is recorded on the result and the node falls back.
  */
 export async function ensureObject(parameters: NetworkCacheFetchTaskParameters, dependencies: FetchDependencies): Promise<EnsuredObject> {
   const cache = dependencies.cache;
@@ -146,6 +157,22 @@ export async function ensureObject(parameters: NetworkCacheFetchTaskParameters, 
   const cached = parameters.digest ? await cache.lookup(parameters.digest) : await cache.findByUrl(url);
   if (cached) {
     return { digest: cached.digest, sizeBytes: cached.sizeBytes, hit: true, originBytes: 0, storedAt: cached.fetchedAt, viaEgress: false, egressNodeId: null };
+  }
+  // A deadline that already fired ends the task here: a hit still answers, but no route can make progress.
+  assertLive(dependencies.deadline);
+
+  let segmentsFallbackReason: string | undefined;
+  if (parameters.segments) {
+    try {
+      const filled = await fetchSegmented({ url, maxBytes, parameters, dependencies });
+      await cache.recordMiss();
+      // The bytes came from peers rather than from this node's own path to the source.
+      return { ...filled, hit: false, viaEgress: true, egressNodeId: null };
+    } catch (error) {
+      if (dependencies.signal?.aborted) throw error;
+      if (isStalled(error)) throw error;
+      segmentsFallbackReason = errorCode(error);
+    }
   }
 
   let fallbackReason: string | undefined;
@@ -159,9 +186,10 @@ export async function ensureObject(parameters: NetworkCacheFetchTaskParameters, 
       try {
         const filled = await fillFromEgress({ ...parameters, url, egress: parameters.egress }, maxBytes, dependencies);
         await cache.recordMiss();
-        return { ...filled, hit: false, viaEgress: true, egressNodeId: parameters.egress.nodeId };
+        return { ...filled, hit: false, viaEgress: true, egressNodeId: parameters.egress.nodeId, ...(segmentsFallbackReason ? { segmentsFallbackReason } : {}) };
       } catch (error) {
         if (dependencies.signal?.aborted) throw error;
+        if (isStalled(error)) throw error;
         fallbackReason = errorCode(error);
       }
     }
@@ -169,7 +197,11 @@ export async function ensureObject(parameters: NetworkCacheFetchTaskParameters, 
 
   const filled = await fillFromOrigin(url, maxBytes, parameters, dependencies);
   await cache.recordMiss();
-  return { ...filled, hit: false, viaEgress: false, egressNodeId: null, ...(fallbackReason ? { egressFallbackReason: fallbackReason } : {}) };
+  return {
+    ...filled, hit: false, viaEgress: false, egressNodeId: null,
+    ...(fallbackReason ? { egressFallbackReason: fallbackReason } : {}),
+    ...(segmentsFallbackReason ? { segmentsFallbackReason } : {}),
+  };
 }
 
 /** One in-flight transfer per cache instance and URL: two tasks for the same object pull it once. */
@@ -202,5 +234,13 @@ async function fill(url: string, parameters: NetworkCacheFetchTaskParameters, de
     url, digest: ensured.digest, sizeBytes: ensured.sizeBytes, hit: ensured.hit, originBytes: ensured.originBytes,
     storedAt: ensured.storedAt, elapsedMs: Date.now() - started, viaEgress: ensured.viaEgress, egressNodeId: ensured.egressNodeId,
     ...(ensured.egressFallbackReason ? { egressFallbackReason: ensured.egressFallbackReason } : {}),
+    ...(ensured.segmentsFallbackReason ? { segmentsFallbackReason: ensured.segmentsFallbackReason } : {}),
+    ...(ensured.segmented ? {
+      segmented: true,
+      segmentCount: ensured.segmentCount ?? 0,
+      segmentSources: ensured.segmentSources ?? [],
+      ...(ensured.parts ? { parts: ensured.parts } : {}),
+      resumedBytes: ensured.resumedBytes ?? 0,
+    } : {}),
   };
 }

@@ -54,6 +54,8 @@ const environmentSchema = z.object({
   STACKPILOT_AGENT_STATE_PATH: z.string().default(".stackpilot/controller-agent-state.json"),
   STACKPILOT_TRUSTED_PROXIES: z.string().default(""),
   STACKPILOT_EGRESS_PROBE_TARGETS: z.string().default(""),
+  /** Month-to-date bytes per node above which sharding and egress delegation stop; 0 disables the limit. */
+  STACKPILOT_MESH_TRAFFIC_QUOTA_BYTES: z.coerce.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).default(0),
   STACKPILOT_PRODUCTION: z.enum(["0", "1"]).default("0"),
   STACKPILOT_PROTECTED_SITE_IDS: z.string().default(""),
 }).passthrough();
@@ -87,6 +89,8 @@ export type ControllerConfig = {
   trustedProxies: string[];
   /** Sources the Controller asks every node to measure; empty disables egress probing entirely. */
   egressProbeTargets: string[];
+  /** Monthly per-node transfer budget; zero records traffic without ever restricting it. */
+  meshTrafficQuotaBytes: number;
   production: boolean;
   protectedSiteIds: string[];
 };
@@ -128,6 +132,7 @@ export function loadControllerConfig(env: NodeJS.ProcessEnv | Record<string, str
     agentStatePath: parsed.STACKPILOT_AGENT_STATE_PATH,
     trustedProxies,
     egressProbeTargets,
+    meshTrafficQuotaBytes: parsed.STACKPILOT_MESH_TRAFFIC_QUOTA_BYTES,
     production:parsed.STACKPILOT_PRODUCTION==="1",
     protectedSiteIds: parsed.STACKPILOT_PROTECTED_SITE_IDS.split(",").map((value) => value.trim()).filter((value) => /^[A-Za-z0-9:_-]{8,160}$/.test(value)),
   };

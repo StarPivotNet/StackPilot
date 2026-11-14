@@ -242,3 +242,28 @@ test("non-cancellable renewal timeout is reported as an unknown result", async (
     assert.equal(result.errorCode, "RESULT_UNKNOWN");
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test("a running transfer publishes at most one progress sample per interval", async () => {
+  const root = await mkdtemp(join(tmpdir(), "stackpilot-executor-"));
+  try {
+    const definition = {
+      capability: "network.transfer", platforms: ["linux"], timeoutMs: 5_000, maxOutputBytes: 16_384, cancellable: true, retryable: false,
+      validate: (value) => value,
+      run: async (_parameters, _signal, _nodeId, _capabilities, context) => {
+        for (let step = 1; step <= 3; step += 1) context.reportProgress({ bytesReceived: step * 1024, totalBytes: 4096, partsDone: 0, partsTotal: 0 });
+        return { message: "ok", truncated: false };
+      },
+    };
+    const executor = new TaskExecutor(join(root, "receipts.json"), nodeId, "linux", ["network.transfer"], { "network.cache.fetch": definition });
+    const updates = [];
+    const result = await executor.execute(
+      task({ type: "network.cache.fetch", parameters: {}, requiredCapability: "network.transfer" }),
+      async (update) => { updates.push(update); },
+    );
+    assert.equal(result.status, "succeeded");
+    // One running acknowledgement, then a single sample: the other two land inside the interval.
+    assert.deepEqual(updates.map((update) => update.status), ["running", "running"]);
+    assert.equal(updates[0].progress, undefined);
+    assert.deepEqual(updates[1].progress, { bytesReceived: 1024, totalBytes: 4096, partsDone: 0, partsTotal: 0 });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

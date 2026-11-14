@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { NetworkCacheFetchResultSchema } from "@stackpilot/contracts";
 import { fetchThroughCache } from "../../apps/agent/dist/cache/fetch.js";
-import { cacheCapacityFrom, configuredCapacityBytes } from "../../apps/agent/dist/cache/runtime.js";
+import { cacheCapacityFrom, configuredCapacityBytes, transferDeadlineFromEnv } from "../../apps/agent/dist/cache/runtime.js";
 import { ContentCache } from "../../apps/agent/dist/cache/store.js";
 import { assertAllowedOriginUrl } from "../../apps/agent/dist/cache/urlPolicy.js";
 import { cacheFetchHandler } from "../../apps/agent/dist/tasks/handlers/cacheFetch.js";
@@ -254,4 +254,18 @@ test("the default capacity follows the volume share with a floor and a ceiling",
   assert.equal(configuredCapacityBytes({ STACKPILOT_AGENT_CACHE_BYTES: "2097152" }), 2 * 1024 ** 2);
   assert.equal(configuredCapacityBytes({ STACKPILOT_AGENT_CACHE_BYTES: "abc" }), undefined);
   assert.equal(configuredCapacityBytes({}), undefined);
+});
+
+test("the progress deadline reads its window and floor from the environment", () => {
+  const defaults = transferDeadlineFromEnv({});
+  assert.deepEqual(defaults.options, { windowMs: 120_000, minBytesPerSecond: 2_048 });
+  defaults.stop();
+  assert.equal(transferDeadlineFromEnv({ STACKPILOT_AGENT_CACHE_STALL_WINDOW_SECONDS: "0" }), null);
+  const custom = transferDeadlineFromEnv({ STACKPILOT_AGENT_CACHE_STALL_WINDOW_SECONDS: "30", STACKPILOT_AGENT_CACHE_MIN_BYTES_PER_SECOND: "1024" });
+  assert.deepEqual(custom.options, { windowMs: 30_000, minBytesPerSecond: 1_024 });
+  custom.stop();
+  // An unusable value falls back to the default instead of disabling the only bound on a trickle.
+  const invalid = transferDeadlineFromEnv({ STACKPILOT_AGENT_CACHE_STALL_WINDOW_SECONDS: "3", STACKPILOT_AGENT_CACHE_MIN_BYTES_PER_SECOND: "-5" });
+  assert.deepEqual(invalid.options, { windowMs: 120_000, minBytesPerSecond: 2_048 });
+  invalid.stop();
 });

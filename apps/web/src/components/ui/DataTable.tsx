@@ -6,6 +6,9 @@ type TableColumn<T> = {
   key: string;
   label: string;
   width?: string;
+  // The cell holds controls (buttons, icon actions) rather than data: a trailing control
+  // column is pinned tight instead of taking an even share.
+  control?: boolean;
   render: (row: T) => React.ReactNode;
   sortValue?: (row: T) => string | number | boolean | null | undefined;
 };
@@ -65,9 +68,14 @@ function DataTable<T>({
           : null
     ));
   };
+  const tailColumn = columns[columns.length - 1];
   return (
     <div className="module-table-wrap" data-motion-revision={interactionRevision}>
-      <table className="mini-table module-table">
+      <table
+        className="mini-table module-table"
+        data-tail={tailColumn?.control ? "control" : undefined}
+        style={tailColumn?.control && tailColumn.width ? { "--tail-column-width": tailColumn.width } as React.CSSProperties : undefined}
+      >
         <colgroup>
           {columns.map((column) => <col key={column.key} style={{ width: column.width }} />)}
         </colgroup>

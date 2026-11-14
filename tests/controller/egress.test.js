@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
-import { AGENT_PROTOCOL_VERSION, MeshPeerDirectoryResponseSchema, NetworkCacheDownloadResponseSchema, NetworkEgressPlanResponseSchema } from "@stackpilot/contracts";
+import { AGENT_PROTOCOL_VERSION, MeshPeerDirectoryResponseSchema, NetworkCacheDownloadJobListResponseSchema, NetworkCacheDownloadResponseSchema, NetworkEgressPlanResponseSchema } from "@stackpilot/contracts";
 import { routeControlPlaneRequest } from "../../apps/controller/dist/http/controlPlaneRouter.js";
 import { routeAgentRequest } from "../../apps/controller/dist/http/agentRouter.js";
 import { EgressService } from "../../apps/controller/dist/modules/network/egressService.js";
@@ -46,10 +46,42 @@ test("the egress table separates disabled, pending and ready nodes and warns whe
   const plan = await egress.plan();
   assert.equal(NetworkEgressPlanResponseSchema.safeParse(plan).success, true);
   assert.deepEqual(plan.nodes.map((node) => node.status), ["disabled", "ready", "pending"]);
+  // The table says which piece is missing, not just that selection skips the node.
+  assert.deepEqual(plan.nodes.map((node) => node.disabledReason), ["no-overlay", null, null]);
   assert.equal(plan.nodes[1].overlayAddress, "100.64.0.11");
   assert.equal(plan.nodes[1].dataPlanePort, 18080);
   assert.equal(plan.nodes[1].samples[0].ttfbMs, 40);
   assert.ok(plan.warnings.some((warning) => /未配置探测源/.test(warning)));
+});
+
+test("a disabled node reports which piece is missing instead of one vague status", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const egress = new EgressService(repository, new RemoteTaskService(repository));
+  const joined = await addNode(repository, { name: "joined", overlayAddress: "100.64.0.40" });
+  const unjoined = await addNode(repository, { name: "unjoined", capabilities: ["network.cache.read"] });
+  const notAllowed = await addNode(repository, { name: "not-allowed", overlayAddress: "100.64.0.41" });
+  const notDeclared = await addNode(repository, { name: "not-declared", overlayAddress: "100.64.0.42" });
+  const gone = await addNode(repository, { name: "gone", overlayAddress: "100.64.0.43" });
+  await repository.update((state) => {
+    const find = (nodeId) => state.nodes.find((node) => node.nodeId === nodeId);
+    // The capability is revoked on one side only: the operator's grant and the Agent's claim fail separately.
+    find(notAllowed).allowedCapabilities = ["network.cache.read"];
+    find(notDeclared).declaredCapabilities = ["network.cache.read"];
+    find(gone).revokedAt = new Date().toISOString();
+  });
+
+  const plan = await egress.plan();
+  assert.equal(NetworkEgressPlanResponseSchema.safeParse(plan).success, true);
+  const node = (nodeId) => plan.nodes.find((entry) => entry.nodeId === nodeId);
+  assert.equal(node(joined).disabledReason, null);
+  assert.notEqual(node(joined).status, "disabled");
+  assert.equal(node(unjoined).disabledReason, "no-overlay");
+  assert.equal(node(notAllowed).disabledReason, "not-allowed");
+  assert.equal(node(notDeclared).disabledReason, "not-declared");
+  assert.equal(node(gone).disabledReason, "revoked");
+  for (const nodeId of [unjoined, notAllowed, notDeclared, gone]) assert.equal(node(nodeId).status, "disabled");
+  // The reason is a report, not a new gate: selection still drops exactly the same nodes.
+  assert.equal((await egress.select("example.com", joined)).reason, "disabled");
 });
 
 test("selection picks the node with the best latency-to-throughput ratio and never itself", async () => {
@@ -259,13 +291,17 @@ test("an offline node is never selected even with a fresh sample", async () => {
   const egress = new EgressService(repository, new RemoteTaskService(repository));
   const self = await addNode(repository, { name: "self", overlayAddress: "100.64.0.110" });
   const offline = await addNode(repository, { name: "offline", overlayAddress: "100.64.0.111", status: "offline" });
+  const quiet = await addNode(repository, { name: "offline-no-sample", overlayAddress: "100.64.0.112", status: "offline" });
   egress.record(offline, [sample("example.com", 10, 900_000)]);
   const picked = await egress.select("example.com", self);
   assert.equal(picked.reason, "offline");
   assert.equal(picked.nodeId, null);
   const plan = await egress.plan();
-  assert.equal(plan.nodes.find((node) => node.nodeId === offline).status, "ready");
-  assert.ok(plan.warnings.some((warning) => /已离线/.test(warning)));
+  // A dead process is not an egress: a fresh sample must not make the table call it ready.
+  assert.equal(plan.nodes.find((node) => node.nodeId === offline).status, "offline");
+  assert.equal(plan.nodes.find((node) => node.nodeId === quiet).status, "offline");
+  // Only the node whose fresh sample could read as ready needs a warning; a second one would spend the cap.
+  assert.equal(plan.warnings.filter((warning) => /已离线/.test(warning)).length, 1);
 });
 
 test("a sample dated in the future is not treated as fresh", async () => {
@@ -294,4 +330,302 @@ test("a user task cannot name its own egress target", async () => {
     type: "network.cache.fetch", parameters, expiresInSeconds: 900, idempotencyKey: "controller-egress",
   }, "user:admin", randomUUID(), access, () => undefined);
   assert.equal(created.status, "queued");
+});
+
+test("a segmented download names every eligible peer and audits the plan", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const egress = new EgressService(repository, remoteTasks);
+  const receiver = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.140" });
+  const first = await addNode(repository, { name: "first", overlayAddress: "100.64.0.141", port: 18081 });
+  const second = await addNode(repository, { name: "second", overlayAddress: "100.64.0.142", port: 18082 });
+  const offline = await addNode(repository, { name: "offline", overlayAddress: "100.64.0.143", status: "offline" });
+  await addNode(repository, { name: "reader", capabilities: ["network.cache.read"] });
+  egress.record(first, [sample("example.com", 20, 900_000)]);
+  egress.record(second, [sample("example.com", 30, 800_000)]);
+
+  const created = await egress.download({ nodeId: receiver, url: "https://example.com/layer.tgz", segments: { maxNodes: 4 } },
+    "user:admin", randomUUID(), { permissions: new Set(["tasks:create"]), nodeScope: "all" }, () => undefined);
+  assert.equal(NetworkCacheDownloadResponseSchema.safeParse(created).success, true);
+  // No single node is the egress, and the receiver itself is never a source.
+  assert.equal(created.selection, null);
+  const expected = [first, second].sort((left, right) => left.localeCompare(right));
+  assert.deepEqual(created.segments.sources.map((source) => source.nodeId), expected);
+  assert.deepEqual(created.segments.sources.map((source) => source.port), created.segments.sources.map((source) => source.nodeId === first ? 18081 : 18082));
+  assert.equal(created.segments.sources.some((source) => source.nodeId === offline || source.nodeId === receiver), false);
+
+  const task = await remoteTasks.getReadOnly(created.taskId);
+  assert.deepEqual(task.parameters, { url: "https://example.com/layer.tgz", segments: { sources: created.segments.sources } });
+  const audits = (await repository.read({ sections: ["audits"] })).audits;
+  const plan = audits.find((event) => event.event === "network.segments.plan");
+  assert.equal(plan.parameters.sourceCount, 2);
+  assert.deepEqual(plan.parameters.sources, expected);
+  assert.equal(plan.parameters.reason, "selected");
+});
+
+test("a segmented download without an eligible peer falls back to the egress path", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const egress = new EgressService(repository, remoteTasks);
+  const receiver = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.150" });
+  const created = await egress.download({ nodeId: receiver, url: "https://example.com/layer.tgz", segments: { maxNodes: 2 } },
+    "user:admin", randomUUID(), { permissions: new Set(["tasks:create"]), nodeScope: "all" }, () => undefined);
+  assert.equal(created.selection.nodeId, null);
+  assert.equal(created.selection.reason, "disabled");
+  assert.equal(created.segments, null);
+  const task = await remoteTasks.getReadOnly(created.taskId);
+  assert.deepEqual(task.parameters, { url: "https://example.com/layer.tgz" });
+  // Both decisions are audited: the plan was dropped, and the fill still went somewhere.
+  const audits = (await repository.read({ sections: ["audits"] })).audits.map((event) => event.event);
+  assert.deepEqual(audits.filter((event) => event !== "task.created"), ["network.segments.plan", "egress.local"]);
+});
+
+test("a user task cannot name its own segment sources", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const node = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.160" });
+  const access = { permissions: new Set(["tasks:create"]), nodeScope: "all" };
+  const parameters = { url: "https://example.com/layer.tgz", segments: { sources: [{ nodeId: randomUUID(), overlayAddress: "100.64.0.161", port: 18080 }] } };
+  await assert.rejects(() => remoteTasks.createForUser(node, {
+    type: "network.cache.fetch", parameters, expiresInSeconds: 900, idempotencyKey: "user-segment-attempt",
+  }, "user:admin", randomUUID(), access, () => undefined), (error) => error.status === 403);
+  const created = await remoteTasks.createWithEgress(node, {
+    type: "network.cache.fetch", parameters, expiresInSeconds: 900, idempotencyKey: "controller-segment",
+  }, "user:admin", randomUUID(), access, () => undefined);
+  assert.equal(created.status, "queued");
+});
+
+test("a running job publishes counters and the Controller derives the rate from two samples", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const egress = new EgressService(repository, remoteTasks);
+  const node = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.170" });
+  const access = { permissions: new Set(["tasks:create"]), nodeScope: "all" };
+  const created = await remoteTasks.createWithEgress(node, {
+    type: "network.cache.fetch", parameters: { url: "https://example.com/layer.tgz" }, expiresInSeconds: 900, idempotencyKey: "progress-job",
+  }, "user:admin", randomUUID(), access, () => undefined);
+  await remoteTasks.poll(node, randomUUID());
+
+  const started = Date.now();
+  const first = await remoteTasks.update(node, {
+    taskId: created.taskId, attempt: 1, status: "running", timestamp: new Date(started).toISOString(),
+    progress: { bytesReceived: 1024 * 1024, totalBytes: 8 * 1024 * 1024, partsDone: 0, partsTotal: 2,
+      parts: [{ index: 0, sourceNodeId: node, bytes: 512 * 1024, totalBytes: 4 * 1024 * 1024 },
+        { index: 1, sourceNodeId: node, bytes: 0, totalBytes: 4 * 1024 * 1024 }] },
+  }, randomUUID());
+  assert.equal(first.status, "running");
+  assert.equal(first.progress.bytesReceived, 1024 * 1024);
+  // One sample is a position, not a speed.
+  assert.equal(first.progress.bytesPerSecond, null);
+  assert.deepEqual(first.progress.parts.map((part) => part.bytesPerSecond), [null, null]);
+
+  const second = await remoteTasks.update(node, {
+    taskId: created.taskId, attempt: 1, status: "running", timestamp: new Date(started + 10_000).toISOString(),
+    progress: { bytesReceived: 3 * 1024 * 1024, totalBytes: 8 * 1024 * 1024, partsDone: 1, partsTotal: 2,
+      parts: [{ index: 0, sourceNodeId: node, bytes: 4 * 1024 * 1024, totalBytes: 4 * 1024 * 1024 },
+        { index: 1, sourceNodeId: node, bytes: 1024 * 1024, totalBytes: 4 * 1024 * 1024 }] },
+  }, randomUUID());
+  assert.equal(second.progress.bytesPerSecond, Math.round((2 * 1024 * 1024) / 10));
+  // Each part is measured from its own two samples, with the same smoothing as the whole job.
+  assert.equal(second.progress.parts[0].bytesPerSecond, Math.round((4 * 1024 * 1024 - 512 * 1024) / 10));
+  assert.equal(second.progress.parts[1].bytesPerSecond, Math.round((1024 * 1024) / 10));
+  assert.equal(second.progress.partsDone, 1);
+  assert.equal(second.progress.partsTotal, 2);
+
+  // A late, smaller sample must not rewind the bar.
+  const stale = await remoteTasks.update(node, {
+    taskId: created.taskId, attempt: 1, status: "running", timestamp: new Date(started).toISOString(),
+    progress: { bytesReceived: 512 * 1024, totalBytes: 8 * 1024 * 1024, partsDone: 0, partsTotal: 2 },
+  }, randomUUID());
+  assert.equal(stale.progress.bytesReceived, 3 * 1024 * 1024);
+  assert.equal(stale.progress.bytesPerSecond, second.progress.bytesPerSecond);
+  assert.deepEqual(stale.progress.parts, second.progress.parts);
+
+  // A part that restarts its own range loses its rate even while the job total keeps growing; a part
+  // that finished keeps the rate it finished at instead of decaying toward zero.
+  const rewind = await remoteTasks.update(node, {
+    taskId: created.taskId, attempt: 1, status: "running", timestamp: new Date(started + 20_000).toISOString(),
+    progress: { bytesReceived: 4 * 1024 * 1024, totalBytes: 8 * 1024 * 1024, partsDone: 1, partsTotal: 2,
+      parts: [{ index: 0, sourceNodeId: node, bytes: 4 * 1024 * 1024, totalBytes: 4 * 1024 * 1024 },
+        { index: 1, sourceNodeId: node, bytes: 512 * 1024, totalBytes: 4 * 1024 * 1024 }] },
+  }, randomUUID());
+  assert.ok(rewind.progress.bytesReceived > second.progress.bytesReceived);
+  assert.equal(rewind.progress.parts[0].bytesPerSecond, second.progress.parts[0].bytesPerSecond);
+  assert.equal(rewind.progress.parts[1].bytesPerSecond, null);
+
+  // The panel reads the same counters: one line per part, each with its own rate.
+  const listed = await egress.jobs({ permissions: new Set(["tasks:read"]), nodeScope: "all" });
+  const running = listed.jobs.find((item) => item.taskId === created.taskId);
+  assert.equal(running.status, "running");
+  assert.deepEqual(running.parts.map((part) => part.index), [0, 1]);
+  assert.equal(running.parts[0].bytes, 4 * 1024 * 1024);
+  assert.equal(running.parts[0].bytesPerSecond, Math.round((4 * 1024 * 1024 - 512 * 1024) / 10));
+  assert.equal(running.parts[1].bytes, 512 * 1024);
+  assert.equal(running.parts[1].bytesPerSecond, null);
+
+  // A job that stopped running carries no part rates: the map is telemetry, the row is the truth.
+  await remoteTasks.update(node, {
+    taskId: created.taskId, attempt: 1, status: "failed", timestamp: new Date(started + 30_000).toISOString(), errorCode: "CACHE_TRANSFER_STALLED",
+  }, randomUUID());
+  const finished = (await egress.jobs({ permissions: new Set(["tasks:read"]), nodeScope: "all" })).jobs.find((item) => item.taskId === created.taskId);
+  assert.deepEqual(finished.parts, []);
+  assert.equal(finished.failureReason, "CACHE_TRANSFER_STALLED");
+});
+
+test("a job that lapsed unnoticed stops publishing the part rates it had", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  let nowMs = Date.now();
+  const egress = new EgressService(repository, remoteTasks, { now: () => new Date(nowMs) });
+  const node = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.190" });
+  const created = await remoteTasks.createWithEgress(node, {
+    type: "network.cache.fetch", parameters: { url: "https://example.com/lapsed.tgz" }, expiresInSeconds: 60, idempotencyKey: "lapsed-job",
+  }, "user:admin", randomUUID(), { permissions: new Set(["tasks:create"]), nodeScope: "all" }, () => undefined);
+  await remoteTasks.poll(node, randomUUID());
+  await remoteTasks.update(node, {
+    taskId: created.taskId, attempt: 1, status: "running", timestamp: new Date().toISOString(),
+    progress: { bytesReceived: 1024 * 1024, totalBytes: 8 * 1024 * 1024, partsDone: 0, partsTotal: 2,
+      parts: [{ index: 0, sourceNodeId: node, bytes: 1024 * 1024, totalBytes: 4 * 1024 * 1024 }] },
+  }, randomUUID());
+  const access = { permissions: new Set(["tasks:read"]), nodeScope: "all" };
+  const live = (await egress.jobs(access)).jobs.find((item) => item.taskId === created.taskId);
+  assert.equal(live.parts.length, 1);
+
+  // The Agent died here: no further observation arrives, so the read path is what notices the lapse.
+  nowMs += 3_600_000;
+  const lapsed = (await egress.jobs(access)).jobs.find((item) => item.taskId === created.taskId);
+  assert.equal(lapsed.status, "expired");
+  assert.deepEqual(lapsed.parts, []);
+  // Housekeeping drops the entry itself instead of holding it for the life of the process.
+  await egress.tick();
+  assert.equal(egress.liveParts.size, 0);
+});
+
+test("the download job list renders the fill result and offers a failed job for retry", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const egress = new EgressService(repository, remoteTasks);
+  const receiver = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.180" });
+  const first = await addNode(repository, { name: "first", overlayAddress: "100.64.0.181" });
+  const second = await addNode(repository, { name: "second", overlayAddress: "100.64.0.182" });
+  const access = { permissions: new Set(["tasks:create", "tasks:read"]), nodeScope: "all" };
+  const done = await egress.download({ nodeId: receiver, url: "https://example.com/layer.tgz" }, "user:admin", randomUUID(), access, () => undefined);
+  await remoteTasks.poll(receiver, randomUUID());
+  const digest = "c".repeat(64);
+  await remoteTasks.update(receiver, {
+    taskId: done.taskId, attempt: 1, status: "succeeded", timestamp: new Date().toISOString(),
+    result: { message: "filled", truncated: false, data: {
+      url: "https://example.com/layer.tgz", digest, sizeBytes: 3 * 1024 * 1024, hit: false, originBytes: 0,
+      storedAt: new Date().toISOString(), elapsedMs: 3_000, viaEgress: false, segmented: true,
+      segmentCount: 2, segmentSources: [first, second], resumedBytes: 1024,
+    } },
+  }, randomUUID());
+
+  const failed = await egress.download({ nodeId: receiver, url: "https://example.com/other.tgz" }, "user:admin", randomUUID(), access, () => undefined);
+  await remoteTasks.poll(receiver, randomUUID());
+  await remoteTasks.update(receiver, {
+    taskId: failed.taskId, attempt: 1, status: "failed", timestamp: new Date().toISOString(), errorCode: "CACHE_ORIGIN_ERROR",
+  }, randomUUID());
+
+  const listed = await egress.jobs({ permissions: new Set(["tasks:read"]), nodeScope: "all" });
+  assert.equal(NetworkCacheDownloadJobListResponseSchema.safeParse(listed).success, true);
+  assert.equal(typeof listed.collectedAt, "string");
+  const job = listed.jobs.find((item) => item.taskId === done.taskId);
+  assert.equal(job.nodeName, "receiver");
+  assert.equal(job.host, "example.com");
+  assert.equal(job.status, "succeeded");
+  assert.equal(job.segmented, true);
+  assert.equal(job.segmentSources, 2);
+  assert.equal(job.resumedBytes, 1024);
+  assert.equal(job.digest, digest);
+  assert.equal(job.bytesReceived, 3 * 1024 * 1024);
+  // A finished job shows the average the Agent measured, not a stale live sample.
+  assert.equal(job.bytesPerSecond, 1024 * 1024);
+  assert.equal(job.retryable, false);
+
+  const broken = listed.jobs.find((item) => item.taskId === failed.taskId);
+  assert.equal(broken.status, "failed");
+  assert.equal(broken.failureReason, "CACHE_ORIGIN_ERROR");
+  assert.equal(broken.retryable, true);
+  // No result means no hit state and no size, not a zero-byte miss.
+  assert.equal(broken.hit, null);
+  assert.equal(broken.sizeBytes, null);
+  assert.equal(broken.segmentCount, 0);
+  await assert.rejects(() => egress.jobs({ permissions: new Set(["nodes:read"]), nodeScope: "all" }), (error) => error.status === 403);
+});
+
+test("a retry replays the finished job's own parameters once, even when clicked twice", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const egress = new EgressService(repository, remoteTasks);
+  const receiver = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.190" });
+  const access = { permissions: new Set(["tasks:create"]), nodeScope: "all" };
+  const digest = "d".repeat(64);
+  const source = await egress.download({ nodeId: receiver, url: "https://example.com/layer.tgz", digest, maxBytes: 5 * 1024 * 1024 },
+    "user:admin", randomUUID(), access, () => undefined);
+  await remoteTasks.poll(receiver, randomUUID());
+  await remoteTasks.update(receiver, {
+    taskId: source.taskId, attempt: 1, status: "failed", timestamp: new Date().toISOString(), errorCode: "CACHE_ORIGIN_ERROR",
+  }, randomUUID());
+
+  const first = await egress.retry(source.taskId, "user:admin", randomUUID(), access);
+  const second = await egress.retry(source.taskId, "user:admin", randomUUID(), access);
+  assert.equal(first.taskId, second.taskId);
+  assert.notEqual(first.taskId, source.taskId);
+  const replacement = await remoteTasks.getReadOnly(first.taskId);
+  assert.equal(replacement.idempotencyKey, `retry-${source.taskId}`);
+  assert.deepEqual(replacement.parameters, { url: "https://example.com/layer.tgz", digest, maxBytes: 5 * 1024 * 1024 });
+  const audits = (await repository.read({ sections: ["audits"] })).audits.filter((event) => event.event === "network.cache.retry");
+  // Two clicks are two audited attempts against one replacement task.
+  assert.equal(audits.length, 2);
+  assert.deepEqual(new Set(audits.map((event) => event.taskId)), new Set([first.taskId]));
+  assert.equal(audits[0].parameters.sourceTaskId, source.taskId);
+
+  // A job that has not finished cannot be retried, and an unknown id is a 404.
+  const running = await egress.download({ nodeId: receiver, url: "https://example.com/live.tgz" }, "user:admin", randomUUID(), access, () => undefined);
+  await assert.rejects(() => egress.retry(running.taskId, "user:admin", randomUUID(), access), (error) => error.status === 409);
+  await assert.rejects(() => egress.retry(randomUUID(), "user:admin", randomUUID(), access), (error) => error.status === 404);
+});
+
+test("the download job list and retry routes are gated and return the contract shapes", async () => {
+  const repository = new MemoryAgentControlRepository();
+  const remoteTasks = new RemoteTaskService(repository);
+  const egress = new EgressService(repository, remoteTasks);
+  const receiver = await addNode(repository, { name: "receiver", overlayAddress: "100.64.0.200" });
+  const access = { permissions: new Set(["tasks:create", "tasks:read"]), nodeScope: "all" };
+  const source = await egress.download({ nodeId: receiver, url: "https://example.com/layer.tgz" }, "user:admin", randomUUID(), access, () => undefined);
+  await remoteTasks.poll(receiver, randomUUID());
+  await remoteTasks.update(receiver, {
+    taskId: source.taskId, attempt: 1, status: "failed", timestamp: new Date().toISOString(), errorCode: "CACHE_ORIGIN_ERROR",
+  }, randomUUID());
+
+  const required = [];
+  const response = () => ({ statusCode: 0, headers: {}, body: "", setHeader(name, value) { this.headers[name] = value; }, end(body = "") { this.body = body; } });
+  const principal = (permissions) => ({ type: "session", userId: "admin", id: randomUUID(), permissions: new Set(permissions), nodeScope: "all" });
+
+  const listContext = {
+    request: { method: "GET", headers: {}, socket: { remoteAddress: "198.51.100.60" } },
+    parts: ["api", "network", "cache", "downloads"], requestId: randomUUID(), body: undefined, config: { trustedProxies: [] }, response: response(),
+    services: { egress }, identity: { require(_principal, permission) { required.push(permission); } }, principal: principal(["tasks:read"]),
+  };
+  await routeControlPlaneRequest(listContext);
+  assert.equal(listContext.response.statusCode, 200);
+  assert.deepEqual(required, ["tasks:read"]);
+  const listed = JSON.parse(listContext.response.body);
+  assert.equal(NetworkCacheDownloadJobListResponseSchema.safeParse(listed).success, true);
+  assert.equal(listed.jobs[0].taskId, source.taskId);
+  assert.equal(listed.jobs[0].retryable, true);
+
+  const retryContext = {
+    request: { method: "POST", headers: {}, socket: { remoteAddress: "198.51.100.60" } },
+    parts: ["api", "network", "cache", "downloads", source.taskId, "retry"], requestId: randomUUID(), body: {}, config: { trustedProxies: [] }, response: response(),
+    services: { egress }, identity: { require(_principal, permission) { required.push(permission); }, consumeReauth() { required.push("reauth"); } }, principal: principal(["tasks:create"]),
+  };
+  await routeControlPlaneRequest(retryContext);
+  assert.equal(retryContext.response.statusCode, 201);
+  // A retry replays accepted parameters, so it must not consume a reauthentication proof.
+  assert.deepEqual(required.slice(1), ["tasks:create"]);
+  const created = JSON.parse(retryContext.response.body);
+  assert.equal(NetworkCacheDownloadResponseSchema.safeParse(created).success, true);
+  assert.notEqual(created.taskId, source.taskId);
 });
